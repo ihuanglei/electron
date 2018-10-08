@@ -9,10 +9,9 @@
 #include <string>
 #include <vector>
 
-#include "atom/renderer/guest_view_container.h"
 #include "native_mate/handle.h"
 #include "native_mate/wrappable.h"
-#include "third_party/WebKit/public/platform/WebCache.h"
+#include "third_party/blink/public/platform/web_cache.h"
 
 namespace blink {
 class WebLocalFrame;
@@ -21,7 +20,7 @@ class WebLocalFrame;
 namespace mate {
 class Dictionary;
 class Arguments;
-}
+}  // namespace mate
 
 namespace atom {
 
@@ -52,12 +51,9 @@ class WebFrame : public mate::Wrappable<WebFrame> {
   void SetLayoutZoomLevelLimits(double min_level, double max_level);
 
   v8::Local<v8::Value> RegisterEmbedderCustomElement(
-      const base::string16& name, v8::Local<v8::Object> options);
-  void RegisterElementResizeCallback(
-      int element_instance_id,
-      const GuestViewContainer::ResizeCallback& callback);
-  void AttachGuest(int element_instance_id);
-  void DetachGuest(int element_instance_id);
+      const base::string16& name,
+      v8::Local<v8::Object> options);
+  int GetWebFrameId(v8::Local<v8::Value> content_window);
 
   // Set the provider that will be used by SpellCheckClient for spell check.
   void SetSpellCheckProvider(mate::Arguments* args,
@@ -65,7 +61,6 @@ class WebFrame : public mate::Wrappable<WebFrame> {
                              bool auto_spell_correct_turned_on,
                              v8::Local<v8::Object> provider);
 
-  void RegisterURLSchemeAsSecure(const std::string& scheme);
   void RegisterURLSchemeAsBypassingCSP(const std::string& scheme);
   void RegisterURLSchemeAsPrivileged(const std::string& scheme,
                                      mate::Arguments* args);
@@ -87,8 +82,7 @@ class WebFrame : public mate::Wrappable<WebFrame> {
   void SetIsolatedWorldContentSecurityPolicy(
       int world_id,
       const std::string& security_policy);
-  void SetIsolatedWorldHumanReadableName(int world_id,
-                                         const std::string& name);
+  void SetIsolatedWorldHumanReadableName(int world_id, const std::string& name);
 
   // Resource related methods
   blink::WebCache::ResourceTypeStats GetResourceUsage(v8::Isolate* isolate);
@@ -102,6 +96,8 @@ class WebFrame : public mate::Wrappable<WebFrame> {
   v8::Local<v8::Value> NextSibling() const;
   v8::Local<v8::Value> GetFrameForSelector(const std::string& selector) const;
   v8::Local<v8::Value> FindFrameByName(const std::string& name) const;
+  v8::Local<v8::Value> FindFrameByRoutingId(int routing_id) const;
+  v8::Local<v8::Value> RoutingId() const;
 
   std::unique_ptr<SpellCheckClient> spell_check_client_;
 

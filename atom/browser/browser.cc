@@ -4,10 +4,12 @@
 
 #include "atom/browser/browser.h"
 
+#include <memory>
 #include <string>
 
 #include "atom/browser/atom_browser_main_parts.h"
 #include "atom/browser/browser_observer.h"
+#include "atom/browser/login_handler.h"
 #include "atom/browser/native_window.h"
 #include "atom/browser/window_list.h"
 #include "base/files/file_util.h"
@@ -21,11 +23,12 @@
 
 namespace atom {
 
-Browser::Browser()
-    : is_quiting_(false),
-      is_exiting_(false),
-      is_ready_(false),
-      is_shutdown_(false) {
+Browser::LoginItemSettings::LoginItemSettings() = default;
+Browser::LoginItemSettings::~LoginItemSettings() = default;
+Browser::LoginItemSettings::LoginItemSettings(const LoginItemSettings& other) =
+    default;
+
+Browser::Browser() {
   WindowList::AddObserver(this);
 }
 
@@ -89,7 +92,7 @@ void Browser::Shutdown() {
 
   if (base::ThreadTaskRunnerHandle::IsSet()) {
     base::ThreadTaskRunnerHandle::Get()->PostTask(
-        FROM_HERE, base::MessageLoop::QuitWhenIdleClosure());
+        FROM_HERE, base::RunLoop::QuitCurrentWhenIdleClosureDeprecated());
   } else {
     // There is no message loop available so we are in early stage.
     exit(0);
@@ -149,12 +152,25 @@ void Browser::DidFinishLaunching(const base::DictionaryValue& launch_info) {
   // Make sure the userData directory is created.
   base::ThreadRestrictions::ScopedAllowIO allow_io;
   base::FilePath user_data;
-  if (PathService::Get(brightray::DIR_USER_DATA, &user_data))
+  if (base::PathService::Get(brightray::DIR_USER_DATA, &user_data))
     base::CreateDirectoryAndGetError(user_data, nullptr);
 
   is_ready_ = true;
+  if (ready_promise_) {
+    ready_promise_->Resolve();
+  }
   for (BrowserObserver& observer : observers_)
     observer.OnFinishLaunching(launch_info);
+}
+
+util::Promise* Browser::WhenReady(v8::Isolate* isolate) {
+  if (!ready_promise_) {
+    ready_promise_ = new util::Promise(isolate);
+    if (is_ready()) {
+      ready_promise_->Resolve();
+    }
+  }
+  return ready_promise_;
 }
 
 void Browser::OnAccessibilitySupportChanged() {
@@ -163,7 +179,7 @@ void Browser::OnAccessibilitySupportChanged() {
 }
 
 void Browser::RequestLogin(
-    LoginHandler* login_handler,
+    scoped_refptr<LoginHandler> login_handler,
     std::unique_ptr<base::DictionaryValue> request_details) {
   for (BrowserObserver& observer : observers_)
     observer.OnLogin(login_handler, *(request_details.get()));

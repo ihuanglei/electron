@@ -51,8 +51,7 @@ namespace api {
 
 BrowserView::BrowserView(v8::Isolate* isolate,
                          v8::Local<v8::Object> wrapper,
-                         const mate::Dictionary& options)
-    : api_web_contents_(nullptr) {
+                         const mate::Dictionary& options) {
   Init(isolate, wrapper, options);
 }
 
@@ -153,9 +152,9 @@ void Initialize(v8::Local<v8::Object> exports,
   mate::Dictionary browser_view(
       isolate, BrowserView::GetConstructor(isolate)->GetFunction());
   browser_view.SetMethod("fromId",
-                          &mate::TrackableObject<BrowserView>::FromWeakMapID);
+                         &mate::TrackableObject<BrowserView>::FromWeakMapID);
   browser_view.SetMethod("getAllViews",
-                          &mate::TrackableObject<BrowserView>::GetAll);
+                         &mate::TrackableObject<BrowserView>::GetAll);
   mate::Dictionary dict(isolate, exports);
   dict.Set("BrowserView", browser_view);
 }

@@ -21,14 +21,15 @@ namespace extensions {
 // forwards its output to the base class for processing.
 //
 // This class does two things:
-// 1. Intercepts media/volume keys. Uses an event tap for intercepting media keys
-// (PlayPause, NextTrack, PreviousTrack) and volume keys(VolumeUp, VolumeDown, VolumeMute).
+// 1. Intercepts media/volume keys. Uses an event tap for intercepting media
+// keys (PlayPause, NextTrack, PreviousTrack) and volume keys(VolumeUp,
+// VolumeDown, VolumeMute).
 // 2. Binds keyboard shortcuts (hot keys). Carbon RegisterEventHotKey API for
 // binding to non-media key global hot keys (eg. Command-Shift-1).
 class GlobalShortcutListenerMac : public GlobalShortcutListener {
  public:
   GlobalShortcutListenerMac();
-  virtual ~GlobalShortcutListenerMac();
+  ~GlobalShortcutListenerMac() override;
 
  private:
   typedef int KeyId;
@@ -41,12 +42,10 @@ class GlobalShortcutListenerMac : public GlobalShortcutListener {
   bool OnMediaOrVolumeKeyEvent(int key_code);
 
   // GlobalShortcutListener implementation.
-  virtual void StartListening() override;
-  virtual void StopListening() override;
-  virtual bool RegisterAcceleratorImpl(
-      const ui::Accelerator& accelerator) override;
-  virtual void UnregisterAcceleratorImpl(
-      const ui::Accelerator& accelerator) override;
+  void StartListening() override;
+  void StopListening() override;
+  bool RegisterAcceleratorImpl(const ui::Accelerator& accelerator) override;
+  void UnregisterAcceleratorImpl(const ui::Accelerator& accelerator) override;
 
   // Mac-specific functions for registering hot keys with modifiers.
   bool RegisterHotKey(const ui::Accelerator& accelerator, KeyId hot_key_id);
@@ -67,12 +66,15 @@ class GlobalShortcutListenerMac : public GlobalShortcutListener {
   bool IsAnyHotKeyRegistered();
 
   // The callback for when an event tap happens.
-  static CGEventRef EventTapCallback(
-      CGEventTapProxy proxy, CGEventType type, CGEventRef event, void* refcon);
+  static CGEventRef EventTapCallback(CGEventTapProxy proxy,
+                                     CGEventType type,
+                                     CGEventRef event,
+                                     void* refcon);
 
   // The callback for when a hot key event happens.
-  static OSStatus HotKeyHandler(
-      EventHandlerCallRef next_handler, EventRef event, void* user_data);
+  static OSStatus HotKeyHandler(EventHandlerCallRef next_handler,
+                                EventRef event,
+                                void* user_data);
 
   // Whether this object is listening for global shortcuts.
   bool is_listening_;

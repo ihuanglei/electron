@@ -15,8 +15,7 @@ class Message;
 
 namespace mate {
 
-class Event : public Wrappable<Event>,
-              public content::WebContentsObserver {
+class Event : public Wrappable<Event>, public content::WebContentsObserver {
  public:
   static Handle<Event> Create(v8::Isolate* isolate);
 
@@ -30,8 +29,8 @@ class Event : public Wrappable<Event>,
   // event.PreventDefault().
   void PreventDefault(v8::Isolate* isolate);
 
-  // event.sendReply(json), used for replying synchronous message.
-  bool SendReply(const base::string16& json);
+  // event.sendReply(array), used for replying synchronous message.
+  bool SendReply(const base::ListValue& result);
 
  protected:
   explicit Event(v8::Isolate* isolate);
@@ -45,8 +44,8 @@ class Event : public Wrappable<Event>,
 
  private:
   // Replyer for the synchronous messages.
-  content::RenderFrameHost* sender_;
-  IPC::Message* message_;
+  content::RenderFrameHost* sender_ = nullptr;
+  IPC::Message* message_ = nullptr;
 
   DISALLOW_COPY_AND_ASSIGN(Event);
 };

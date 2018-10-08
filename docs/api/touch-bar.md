@@ -2,7 +2,7 @@
 
 > Create TouchBar layouts for native macOS applications
 
-Process: [Main](../tutorial/quick-start.md#main-process)
+Process: [Main](../tutorial/application-architecture.md#main-and-renderer-processes)
 
 ### `new TouchBar(options)` _Experimental_
 
@@ -36,9 +36,9 @@ Below is an example of a simple slot machine touch bar game with a button
 and some labels.
 
 ```javascript
-const {app, BrowserWindow, TouchBar} = require('electron')
+const { app, BrowserWindow, TouchBar } = require('electron')
 
-const {TouchBarLabel, TouchBarButton, TouchBarSpacer} = TouchBar
+const { TouchBarLabel, TouchBarButton, TouchBarSpacer } = TouchBar
 
 let spinning = false
 
@@ -114,13 +114,13 @@ const finishSpin = () => {
 
 const touchBar = new TouchBar([
   spin,
-  new TouchBarSpacer({size: 'large'}),
+  new TouchBarSpacer({ size: 'large' }),
   reel1,
-  new TouchBarSpacer({size: 'small'}),
+  new TouchBarSpacer({ size: 'small' }),
   reel2,
-  new TouchBarSpacer({size: 'small'}),
+  new TouchBarSpacer({ size: 'small' }),
   reel3,
-  new TouchBarSpacer({size: 'large'}),
+  new TouchBarSpacer({ size: 'large' }),
   result
 ])
 

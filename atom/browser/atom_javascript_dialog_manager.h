@@ -19,20 +19,20 @@ class WebContents;
 class AtomJavaScriptDialogManager : public content::JavaScriptDialogManager {
  public:
   explicit AtomJavaScriptDialogManager(api::WebContents* api_web_contents);
+  ~AtomJavaScriptDialogManager() override;
 
   // content::JavaScriptDialogManager implementations.
-  void RunJavaScriptDialog(
-      content::WebContents* web_contents,
-      const GURL& origin_url,
-      content::JavaScriptDialogType dialog_type,
-      const base::string16& message_text,
-      const base::string16& default_prompt_text,
-      DialogClosedCallback callback,
-      bool* did_suppress_message) override;
-  void RunBeforeUnloadDialog(
-      content::WebContents* web_contents,
-      bool is_reload,
-      DialogClosedCallback callback) override;
+  void RunJavaScriptDialog(content::WebContents* web_contents,
+                           content::RenderFrameHost* rfh,
+                           content::JavaScriptDialogType dialog_type,
+                           const base::string16& message_text,
+                           const base::string16& default_prompt_text,
+                           DialogClosedCallback callback,
+                           bool* did_suppress_message) override;
+  void RunBeforeUnloadDialog(content::WebContents* web_contents,
+                             content::RenderFrameHost* rfh,
+                             bool is_reload,
+                             DialogClosedCallback callback) override;
   void CancelDialogs(content::WebContents* web_contents,
                      bool reset_state) override;
 

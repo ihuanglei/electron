@@ -5,9 +5,9 @@
 #include "atom/renderer/content_settings_observer.h"
 
 #include "content/public/renderer/render_frame.h"
-#include "third_party/WebKit/public/platform/URLConversion.h"
-#include "third_party/WebKit/public/platform/WebSecurityOrigin.h"
-#include "third_party/WebKit/public/web/WebLocalFrame.h"
+#include "third_party/blink/public/platform/url_conversion.h"
+#include "third_party/blink/public/platform/web_security_origin.h"
+#include "third_party/blink/public/web/web_local_frame.h"
 
 namespace atom {
 
@@ -17,8 +17,7 @@ ContentSettingsObserver::ContentSettingsObserver(
   render_frame->GetWebFrame()->SetContentSettingsClient(this);
 }
 
-ContentSettingsObserver::~ContentSettingsObserver() {
-}
+ContentSettingsObserver::~ContentSettingsObserver() {}
 
 bool ContentSettingsObserver::AllowDatabase(
     const blink::WebString& name,

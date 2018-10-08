@@ -9,7 +9,9 @@
 
 // Include common headers for using node APIs.
 
+#ifdef NODE_SHARED_MODE
 #define BUILDING_NODE_EXTENSION
+#endif
 
 // The following define makes sure that we do not include the macros
 // again. But we still need the tracing functions, so declaring them.
@@ -29,13 +31,13 @@
 #undef LIKELY
 #undef arraysize
 #undef debug_string  // This is defined in macOS 10.9 SDK in AssertMacros.h.
-#include "vendor/node/src/env.h"
-#include "vendor/node/src/env-inl.h"
-#include "vendor/node/src/node.h"
-#include "vendor/node/src/node_buffer.h"
-#include "vendor/node/src/node_debug_options.h"
-#include "vendor/node/src/node_internals.h"
-#include "vendor/node/src/node_platform.h"
+#include "env-inl.h"
+#include "env.h"
+#include "node.h"
+#include "node_buffer.h"
+#include "node_internals.h"
+#include "node_options.h"
+#include "node_platform.h"
 
 namespace node {
 namespace tracing {

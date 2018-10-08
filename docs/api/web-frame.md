@@ -4,14 +4,14 @@
 
 Process: [Renderer](../glossary.md#renderer-process)
 
-`webFrame` export of the electron module is an instance of the `WebFrame`
+`webFrame` export of the Electron module is an instance of the `WebFrame`
 class representing the top frame of the current `BrowserWindow`. Sub-frames can
 be retrieved by certain properties and methods (e.g. `webFrame.firstChild`).
 
 An example of zooming current page to 200%.
 
 ```javascript
-const {webFrame} = require('electron')
+const { webFrame } = require('electron')
 
 webFrame.setZoomFactor(2)
 ```
@@ -73,23 +73,13 @@ whether the word passed is correctly spelled.
 An example of using [node-spellchecker][spellchecker] as provider:
 
 ```javascript
-const {webFrame} = require('electron')
+const { webFrame } = require('electron')
 webFrame.setSpellCheckProvider('en-US', true, {
   spellCheck (text) {
     return !(require('spellchecker').isMisspelled(text))
   }
 })
 ```
-
-### `webFrame.registerURLSchemeAsSecure(scheme)`
-
-* `scheme` String
-
-Registers the `scheme` as secure scheme.
-
-Secure schemes do not trigger mixed content warnings. For example, `https` and
-`data` are secure schemes because they cannot be corrupted by active network
-attackers.
 
 ### `webFrame.registerURLSchemeAsBypassingCSP(scheme)`
 
@@ -115,7 +105,7 @@ Specify an option with the value of `false` to omit it from the registration.
 An example of registering a privileged scheme, without bypassing Content Security Policy:
 
 ```javascript
-const {webFrame} = require('electron')
+const { webFrame } = require('electron')
 webFrame.registerURLSchemeAsPrivileged('foo', { bypassCSP: false })
 ```
 
@@ -132,7 +122,7 @@ Inserts `text` to the focused element.
 * `callback` Function (optional) - Called after script has been executed.
   * `result` Any
 
-Returns `Promise` - A promise that resolves with the result of the executed code
+Returns `Promise<any>` - A promise that resolves with the result of the executed code
 or is rejected if the result of the code is a rejected promise.
 
 Evaluates `code` in page.
@@ -143,31 +133,31 @@ this limitation.
 
 ### `webFrame.executeJavaScriptInIsolatedWorld(worldId, scripts[, userGesture, callback])`
 
-* `worldId` Integer
+* `worldId` Integer - The ID of the world to run the javascript in, `0` is the default world, `999` is the world used by Electrons `contextIsolation` feature.  You can provide any integer here.
 * `scripts` [WebSource[]](structures/web-source.md)
 * `userGesture` Boolean (optional) - Default is `false`.
 * `callback` Function (optional) - Called after script has been executed.
   * `result` Any
 
-Work like `executeJavaScript` but evaluates `scripts` in isolated context.
+Work like `executeJavaScript` but evaluates `scripts` in an isolated context.
 
 ### `webFrame.setIsolatedWorldContentSecurityPolicy(worldId, csp)`
 
-* `worldId` Integer
+* `worldId` Integer - The ID of the world to run the javascript in, `0` is the default world, `999` is the world used by Electrons `contextIsolation` feature.  You can provide any integer here.
 * `csp` String
 
 Set the content security policy of the isolated world.
 
 ### `webFrame.setIsolatedWorldHumanReadableName(worldId, name)`
 
-* `worldId` Integer
+* `worldId` Integer - The ID of the world to run the javascript in, `0` is the default world, `999` is the world used by Electrons `contextIsolation` feature.  You can provide any integer here.
 * `name` String
 
 Set the name of the isolated world. Useful in devtools.
 
 ### `webFrame.setIsolatedWorldSecurityOrigin(worldId, securityOrigin)`
 
-* `worldId` Integer
+* `worldId` Integer - The ID of the world to run the javascript in, `0` is the default world, `999` is the world used by Electrons `contextIsolation` feature.  You can provide any integer here.
 * `securityOrigin` String
 
 Set the security origin of the isolated world.
@@ -177,6 +167,7 @@ Set the security origin of the isolated world.
 Returns `Object`:
 
 * `images` [MemoryUsageDetails](structures/memory-usage-details.md)
+* `scripts` [MemoryUsageDetails](structures/memory-usage-details.md)
 * `cssStyleSheets` [MemoryUsageDetails](structures/memory-usage-details.md)
 * `xslStyleSheets` [MemoryUsageDetails](structures/memory-usage-details.md)
 * `fonts` [MemoryUsageDetails](structures/memory-usage-details.md)
@@ -186,7 +177,7 @@ Returns an object describing usage information of Blink's internal memory
 caches.
 
 ```javascript
-const {webFrame} = require('electron')
+const { webFrame } = require('electron')
 console.log(webFrame.getResourceUsage())
 ```
 
@@ -235,6 +226,15 @@ Returns `WebFrame` - A child of `webFrame` with the supplied `name`, `null`
 would be returned if there's no such frame or if the frame is not in the current
 renderer process.
 
+### `webFrame.findFrameByRoutingId(routingId)`
+
+* `routingId` Integer - An `Integer` representing the unique frame id in the
+   current renderer process. Routing IDs can be retrieved from `WebFrame`
+   instances (`webFrame.routingId`) and are also passed by frame
+   specific `WebContents` navigation events (e.g. `did-frame-navigate`)
+
+Returns `WebFrame` - that has the supplied `routingId`, `null` if not found.
+
 ## Properties
 
 ### `webFrame.top`
@@ -262,5 +262,11 @@ current renderer process.
 ### `webFrame.nextSibling`
 
 A `WebFrame` representing next sibling frame, the property would be `null` if
-`webFrame` is the last frame its parent or if the next sibling is not in the
+`webFrame` is the last frame in its parent or if the next sibling is not in the
 current renderer process.
+
+### `webFrame.routingId`
+
+An `Integer` representing the unique frame id in the current renderer process.
+Distinct WebFrame instances that refer to the same underlying frame will have
+the same `routingId`.

@@ -1,4 +1,4 @@
-const {app, BrowserWindow} = require('electron')
+const { app, BrowserWindow, systemPreferences } = require('electron')
 const path = require('path')
 
 let mainWindow = null
@@ -8,24 +8,36 @@ app.on('window-all-closed', () => {
   app.quit()
 })
 
-exports.load = (appUrl) => {
-  app.on('ready', () => {
-    const options = {
-      width: 900,
-      height: 600,
-      autoHideMenuBar: true,
-      backgroundColor: '#FFFFFF',
-      webPreferences: {
-        nodeIntegrationInWorker: true
-      },
-      useContentSize: true
-    }
-    if (process.platform === 'linux') {
-      options.icon = path.join(__dirname, 'icon.png')
-    }
+exports.load = async (appUrl) => {
+  await app.whenReady()
 
-    mainWindow = new BrowserWindow(options)
-    mainWindow.loadURL(appUrl)
-    mainWindow.focus()
-  })
+  if (process.platform === 'darwin') {
+    systemPreferences.startAppLevelAppearanceTrackingOS()
+  }
+
+  const options = {
+    width: 900,
+    height: 600,
+    autoHideMenuBar: true,
+    backgroundColor: '#FFFFFF',
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      preload: path.resolve(__dirname, 'renderer.js'),
+      webviewTag: false
+    },
+    useContentSize: true,
+    show: false
+  }
+
+  if (process.platform === 'linux') {
+    options.icon = path.join(__dirname, 'icon.png')
+  }
+
+  mainWindow = new BrowserWindow(options)
+
+  mainWindow.on('ready-to-show', () => mainWindow.show())
+
+  mainWindow.loadURL(appUrl)
+  mainWindow.focus()
 }

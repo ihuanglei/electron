@@ -4,6 +4,9 @@
 
 #include "atom/browser/ui/views/submenu_button.h"
 
+#include <memory>
+#include <utility>
+
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "ui/gfx/canvas.h"
@@ -20,18 +23,12 @@ SubmenuButton::SubmenuButton(const base::string16& title,
                              views::MenuButtonListener* menu_button_listener,
                              const SkColor& background_color)
     : views::MenuButton(gfx::RemoveAcceleratorChar(title, '&', NULL, NULL),
-                        menu_button_listener, false),
-      accelerator_(0),
-      show_underline_(false),
-      underline_start_(0),
-      underline_end_(0),
-      text_width_(0),
-      text_height_(0),
-      underline_color_(SK_ColorBLACK),
+                        menu_button_listener,
+                        false),
       background_color_(background_color) {
 #if defined(OS_LINUX)
   // Dont' use native style border.
-  SetBorder(std::move(CreateDefaultBorder()));
+  SetBorder(CreateDefaultBorder());
 #endif
 
   if (GetUnderlinePosition(title, &accelerator_, &underline_start_,
@@ -44,16 +41,13 @@ SubmenuButton::SubmenuButton(const base::string16& title,
       color_utils::BlendTowardOppositeLuma(background_color_, 0x61));
 }
 
-SubmenuButton::~SubmenuButton() {
-}
+SubmenuButton::~SubmenuButton() {}
 
 std::unique_ptr<views::InkDropRipple> SubmenuButton::CreateInkDropRipple()
     const {
   std::unique_ptr<views::InkDropRipple> ripple(
       new views::FloodFillInkDropRipple(
-          size(),
-          GetInkDropCenterBasedOnLastEvent(),
-          GetInkDropBaseColor(),
+          size(), GetInkDropCenterBasedOnLastEvent(), GetInkDropBaseColor(),
           ink_drop_visible_opacity()));
   return ripple;
 }
@@ -91,7 +85,8 @@ void SubmenuButton::PaintButtonContents(gfx::Canvas* canvas) {
 
 bool SubmenuButton::GetUnderlinePosition(const base::string16& text,
                                          base::char16* accelerator,
-                                         int* start, int* end) const {
+                                         int* start,
+                                         int* end) const {
   int pos, span;
   base::string16 trimmed = gfx::RemoveAcceleratorChar(text, '&', &pos, &span);
   if (pos > -1 && span != 0) {
@@ -104,8 +99,9 @@ bool SubmenuButton::GetUnderlinePosition(const base::string16& text,
   return false;
 }
 
-void SubmenuButton::GetCharacterPosition(
-    const base::string16& text, int index, int* pos) const {
+void SubmenuButton::GetCharacterPosition(const base::string16& text,
+                                         int index,
+                                         int* pos) const {
   int height = 0;
   gfx::Canvas::SizeStringInt(text.substr(0, index), gfx::FontList(), pos,
                              &height, 0, 0);

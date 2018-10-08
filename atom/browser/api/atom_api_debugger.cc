@@ -4,18 +4,17 @@
 
 #include "atom/browser/api/atom_api_debugger.h"
 
+#include <memory>
 #include <string>
+#include <utility>
 
-#include "atom/browser/atom_browser_main_parts.h"
 #include "atom/common/native_mate_converters/callback.h"
 #include "atom/common/native_mate_converters/value_converter.h"
 #include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
-#include "base/memory/ptr_util.h"
 #include "content/public/browser/devtools_agent_host.h"
 #include "content/public/browser/web_contents.h"
 #include "native_mate/dictionary.h"
-#include "native_mate/object_template_builder.h"
 
 #include "atom/common/node_includes.h"
 
@@ -26,25 +25,22 @@ namespace atom {
 namespace api {
 
 Debugger::Debugger(v8::Isolate* isolate, content::WebContents* web_contents)
-    : web_contents_(web_contents),
-      previous_request_id_(0) {
+    : content::WebContentsObserver(web_contents), web_contents_(web_contents) {
   Init(isolate);
 }
 
-Debugger::~Debugger() {
-}
+Debugger::~Debugger() {}
 
-void Debugger::AgentHostClosed(DevToolsAgentHost* agent_host,
-                               bool replaced_with_another_client) {
-  std::string detach_reason = "target closed";
-  if (replaced_with_another_client)
-    detach_reason = "replaced with devtools";
-  Emit("detach", detach_reason);
+void Debugger::AgentHostClosed(DevToolsAgentHost* agent_host) {
+  DCHECK(agent_host == agent_host_);
+  agent_host_ = nullptr;
+  ClearPendingRequests();
+  Emit("detach", "target closed");
 }
 
 void Debugger::DispatchProtocolMessage(DevToolsAgentHost* agent_host,
                                        const std::string& message) {
-  DCHECK(agent_host == agent_host_.get());
+  DCHECK(agent_host == agent_host_);
 
   v8::Locker locker(isolate());
   v8::HandleScope handle_scope(isolate());
@@ -71,14 +67,26 @@ void Debugger::DispatchProtocolMessage(DevToolsAgentHost* agent_host,
       return;
     base::DictionaryValue* error_body = nullptr;
     base::DictionaryValue error;
-    if (dict->GetDictionary("error", &error_body))
+    bool has_error;
+    if ((has_error = dict->GetDictionary("error", &error_body))) {
       error.Swap(error_body);
+    }
 
     base::DictionaryValue* result_body = nullptr;
     base::DictionaryValue result;
     if (dict->GetDictionary("result", &result_body))
       result.Swap(result_body);
-    send_command_callback.Run(error, result);
+    send_command_callback.Run(has_error ? error.Clone() : base::Value(),
+                              result);
+  }
+}
+
+void Debugger::RenderFrameHostChanged(content::RenderFrameHost* old_rfh,
+                                      content::RenderFrameHost* new_rfh) {
+  if (agent_host_) {
+    agent_host_->DisconnectWebContents();
+    auto* web_contents = content::WebContents::FromRenderFrameHost(new_rfh);
+    agent_host_->ConnectWebContents(web_contents);
   }
 }
 
@@ -86,18 +94,20 @@ void Debugger::Attach(mate::Arguments* args) {
   std::string protocol_version;
   args->GetNext(&protocol_version);
 
+  if (agent_host_) {
+    args->ThrowError("Debugger is already attached to the target");
+    return;
+  }
+
   if (!protocol_version.empty() &&
       !DevToolsAgentHost::IsSupportedProtocolVersion(protocol_version)) {
     args->ThrowError("Requested protocol version is not supported");
     return;
   }
+
   agent_host_ = DevToolsAgentHost::GetOrCreateFor(web_contents_);
-  if (!agent_host_.get()) {
+  if (!agent_host_) {
     args->ThrowError("No target available");
-    return;
-  }
-  if (agent_host_->IsAttached()) {
-    args->ThrowError("Another debugger is already attached to this target");
     return;
   }
 
@@ -105,19 +115,18 @@ void Debugger::Attach(mate::Arguments* args) {
 }
 
 bool Debugger::IsAttached() {
-  return agent_host_.get() ? agent_host_->IsAttached() : false;
+  return agent_host_ && agent_host_->IsAttached();
 }
 
 void Debugger::Detach() {
-  if (!agent_host_.get())
+  if (!agent_host_)
     return;
   agent_host_->DetachClient(this);
-  AgentHostClosed(agent_host_.get(), false);
-  agent_host_ = nullptr;
+  AgentHostClosed(agent_host_.get());
 }
 
 void Debugger::SendCommand(mate::Arguments* args) {
-  if (!agent_host_.get())
+  if (!agent_host_)
     return;
 
   std::string method;
@@ -136,17 +145,27 @@ void Debugger::SendCommand(mate::Arguments* args) {
   request.SetInteger("id", request_id);
   request.SetString("method", method);
   if (!command_params.empty())
-    request.Set("params", base::WrapUnique(command_params.DeepCopy()));
+    request.Set("params",
+                base::Value::ToUniquePtrValue(command_params.Clone()));
 
   std::string json_args;
   base::JSONWriter::Write(request, &json_args);
   agent_host_->DispatchProtocolMessage(this, json_args);
 }
 
+void Debugger::ClearPendingRequests() {
+  if (pending_requests_.empty())
+    return;
+  base::Value error(base::Value::Type::DICTIONARY);
+  base::Value error_msg("target closed while handling command");
+  error.SetKey("message", std::move(error_msg));
+  for (const auto& it : pending_requests_)
+    it.second.Run(error, base::Value());
+}
+
 // static
-mate::Handle<Debugger> Debugger::Create(
-    v8::Isolate* isolate,
-    content::WebContents* web_contents) {
+mate::Handle<Debugger> Debugger::Create(v8::Isolate* isolate,
+                                        content::WebContents* web_contents) {
   return mate::CreateHandle(isolate, new Debugger(isolate, web_contents));
 }
 
@@ -169,8 +188,10 @@ namespace {
 
 using atom::api::Debugger;
 
-void Initialize(v8::Local<v8::Object> exports, v8::Local<v8::Value> unused,
-                v8::Local<v8::Context> context, void* priv) {
+void Initialize(v8::Local<v8::Object> exports,
+                v8::Local<v8::Value> unused,
+                v8::Local<v8::Context> context,
+                void* priv) {
   v8::Isolate* isolate = context->GetIsolate();
   mate::Dictionary(isolate, exports)
       .Set("Debugger", Debugger::GetConstructor(isolate)->GetFunction());

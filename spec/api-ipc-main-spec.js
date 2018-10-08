@@ -1,11 +1,17 @@
 'use strict'
 
-const assert = require('assert')
+const chai = require('chai')
+const dirtyChai = require('dirty-chai')
 const path = require('path')
-const {closeWindow} = require('./window-helpers')
+const cp = require('child_process')
+const { closeWindow } = require('./window-helpers')
+const { emittedOnce } = require('./events-helpers')
 
-const {remote} = require('electron')
-const {ipcMain, BrowserWindow} = remote
+const { expect } = chai
+chai.use(dirtyChai)
+
+const { remote } = require('electron')
+const { ipcMain, BrowserWindow } = remote
 
 describe('ipc main module', () => {
   const fixtures = path.join(__dirname, 'fixtures')
@@ -23,7 +29,7 @@ describe('ipc main module', () => {
         event.returnValue = null
         done()
       })
-      w.loadURL(`file://${path.join(fixtures, 'api', 'send-sync-message.html')}`)
+      w.loadFile(path.join(fixtures, 'api', 'send-sync-message.html'))
     })
 
     it('does not crash when reply is sent by multiple listeners', (done) => {
@@ -35,7 +41,7 @@ describe('ipc main module', () => {
         event.returnValue = null
         done()
       })
-      w.loadURL(`file://${path.join(fixtures, 'api', 'send-sync-message.html')}`)
+      w.loadFile(path.join(fixtures, 'api', 'send-sync-message.html'))
     })
   })
 
@@ -45,22 +51,10 @@ describe('ipc main module', () => {
       const listener = () => {}
 
       w.on('test', listener)
-      assert.equal(w.listenerCount('test'), 1)
+      expect(w.listenerCount('test')).to.equal(1)
       w.removeListener('test', listener)
-      assert.equal(w.listenerCount('test'), 0)
+      expect(w.listenerCount('test')).to.equal(0)
     })
-  })
-
-  it('throws an error when removing all the listeners', () => {
-    ipcMain.on('test-event', () => {})
-    assert.equal(ipcMain.listenerCount('test-event'), 1)
-
-    assert.throws(() => {
-      ipcMain.removeAllListeners()
-    }, /Removing all listeners from ipcMain will make Electron internals stop working/)
-
-    ipcMain.removeAllListeners('test-event')
-    assert.equal(ipcMain.listenerCount('test-event'), 0)
   })
 
   describe('remote objects registry', () => {
@@ -68,11 +62,28 @@ describe('ipc main module', () => {
       w = new BrowserWindow({ show: false })
 
       ipcMain.once('error-message', (event, message) => {
-        assert(message.startsWith('Cannot call function \'getURL\' on missing remote object'), message)
+        const correctMsgStart = message.startsWith('Cannot call function \'getURL\' on missing remote object')
+        expect(correctMsgStart).to.be.true()
         done()
       })
 
-      w.loadURL(`file://${path.join(fixtures, 'api', 'render-view-deleted.html')}`)
+      w.loadFile(path.join(fixtures, 'api', 'render-view-deleted.html'))
+    })
+  })
+
+  describe('ipcMain.on', () => {
+    it('is not used for internals', async () => {
+      const appPath = path.join(__dirname, 'fixtures', 'api', 'ipc-main-listeners')
+      const electronPath = remote.getGlobal('process').execPath
+      const appProcess = cp.spawn(electronPath, [appPath])
+
+      let output = ''
+      appProcess.stdout.on('data', (data) => { output += data })
+
+      await emittedOnce(appProcess.stdout, 'end')
+
+      output = JSON.parse(output)
+      expect(output).to.deep.equal(['error'])
     })
   })
 })

@@ -1,8 +1,18 @@
 # `<webview>` Tag
 
+## Warning
+
+Electron's `webview` tag is based on [Chromium's `webview`][chrome-webview], which
+is undergoing dramatic architectural changes. This impacts the stability of `webviews`,
+including rendering, navigation, and event routing. We currently recommend to not
+use the `webview` tag and to consider alternatives, like `iframe`, Electron's `BrowserView`,
+or an architecture that avoids embedded content altogether.
+
+## Overview
+
 > Display external web content in an isolated frame and process.
 
-Process: [Renderer](../tutorial/quick-start.md#renderer-process)
+Process: [Renderer](../glossary.md#renderer-process)
 
 Use the `webview` tag to embed 'guest' content (such as web pages) in your
 Electron app. The guest content is contained within the `webview` container.
@@ -52,32 +62,27 @@ and displays a "loading..." message during the load time:
 </script>
 ```
 
+## Internal implementation
+
+Under the hood `webview` is implemented with [Out-of-Process iframes (OOPIFs)](https://www.chromium.org/developers/design-documents/oop-iframes).
+The `webview` tag is essentially a custom element using shadow DOM to wrap an
+`iframe` element inside it.
+
+So the behavior of `webview` is very similar to a cross-domain `iframe`, as
+examples:
+
+* When clicking into a `webview`, the page focus will move from the embedder
+  frame to `webview`.
+* You can not add keyboard event listeners to `webview`.
+* All reactions between the embedder frame and `webview` are asynchronous.
+
 ## CSS Styling Notes
 
 Please note that the `webview` tag's style uses `display:flex;` internally to
-ensure the child `object` element fills the full height and width of its `webview`
-container when used with traditional and flexbox layouts (since v0.36.11). Please
-do not overwrite the default `display:flex;` CSS property, unless specifying
+ensure the child `iframe` element fills the full height and width of its `webview`
+container when used with traditional and flexbox layouts. Please do not
+overwrite the default `display:flex;` CSS property, unless specifying
 `display:inline-flex;` for inline layout.
-
-`webview` has issues being hidden using the `hidden` attribute or using
-`display: none;`. It can cause unusual rendering behaviour within its child
-`browserplugin` object and the web page is reloaded when the `webview` is
-un-hidden. The recommended approach is to hide the `webview` using
-`visibility: hidden`.
-
-```html
-<style>
-  webview {
-    display:inline-flex;
-    width:640px;
-    height:480px;
-  }
-  webview.hide {
-    visibility: hidden;
-  }
-</style>
-```
 
 ## Tag Attributes
 
@@ -214,15 +219,15 @@ A name by itself is given a `true` boolean value.
 A preference can be set to another value by including an `=`, followed by the value.
 Special values `yes` and `1` are interpreted as `true`, while `no` and `0` are interpreted as `false`.
 
-### `blinkfeatures`
+### `enableblinkfeatures`
 
 ```html
-<webview src="https://www.github.com/" blinkfeatures="PreciseMemoryInfo, CSSVariables"></webview>
+<webview src="https://www.github.com/" enableblinkfeatures="PreciseMemoryInfo, CSSVariables"></webview>
 ```
 
 A list of strings which specifies the blink features to be enabled separated by `,`.
 The full list of supported feature strings can be found in the
-[RuntimeEnabledFeatures.json5][blink-feature-string] file.
+[RuntimeEnabledFeatures.json5][runtime-enabled-features] file.
 
 ### `disableblinkfeatures`
 
@@ -232,60 +237,7 @@ The full list of supported feature strings can be found in the
 
 A list of strings which specifies the blink features to be disabled separated by `,`.
 The full list of supported feature strings can be found in the
-[RuntimeEnabledFeatures.json5][blink-feature-string] file.
-
-### `guestinstance`
-
-```html
-<webview src="https://www.github.com/" guestinstance="3"></webview>
-```
-
-A value that links the webview to a specific webContents. When a webview
-first loads a new webContents is created and this attribute is set to its
-instance identifier. Setting this attribute on a new or existing webview
-connects it to the existing webContents that currently renders in a different
-webview.
-
-The existing webview will see the `destroy` event and will then create a new
-webContents when a new url is loaded.
-
-### `disableguestresize`
-
-```html
-<webview src="https://www.github.com/" disableguestresize></webview>
-```
-
-When this attribute is present the `webview` contents will be prevented from
-resizing when the `webview` element itself is resized.
-
-This can be used in combination with
-[`webContents.setSize`](web-contents.md#contentssetsizeoptions) to manually
-resize the webview contents in reaction to a window size change. This can
-make resizing faster compared to relying on the webview element bounds to
-automatically resize the contents.
-
-```javascript
-const {webContents} = require('electron')
-
-// We assume that `win` points to a `BrowserWindow` instance containing a
-// `<webview>` with `disableguestresize`.
-
-win.on('resize', () => {
-  const [width, height] = win.getContentSize()
-  for (let wc of webContents.getAllWebContents()) {
-    // Check if `wc` belongs to a webview in the `win` window.
-    if (wc.hostWebContents &&
-        wc.hostWebContents.id === win.webContents.id) {
-      wc.setSize({
-        normal: {
-          width: width,
-          height: height
-        }
-      })
-    }
-  }
-})
-```
+[RuntimeEnabledFeatures.json5][runtime-enabled-features] file.
 
 ## Methods
 
@@ -306,14 +258,20 @@ webview.addEventListener('dom-ready', () => {
 
 * `url` URL
 * `options` Object (optional)
-  * `httpReferrer` String (optional) - A HTTP Referrer url.
+  * `httpReferrer` (String | [Referrer](structures/referrer.md)) (optional) - An HTTP Referrer url.
   * `userAgent` String (optional) - A user agent originating the request.
   * `extraHeaders` String (optional) - Extra headers separated by "\n"
-  * `postData` ([UploadRawData[]](structures/upload-raw-data.md) | [UploadFile[]](structures/upload-file.md) | [UploadFileSystem[]](structures/upload-file-system.md) | [UploadBlob[]](structures/upload-blob.md)) (optional) -
+  * `postData` ([UploadRawData[]](structures/upload-raw-data.md) | [UploadFile[]](structures/upload-file.md) | [UploadBlob[]](structures/upload-blob.md)) (optional)
   * `baseURLForDataURL` String (optional) - Base url (with trailing path separator) for files to be loaded by the data url. This is needed only if the specified `url` is a data url and needs to load other files.
 
 Loads the `url` in the webview, the `url` must contain the protocol prefix,
 e.g. the `http://` or `file://`.
+
+### `<webview>.downloadURL(url)`
+
+* `url` String
+
+Initiates a download of the resource at `url` without navigating.
 
 ### `<webview>.getURL()`
 
@@ -326,6 +284,11 @@ Returns `String` - The title of guest page.
 ### `<webview>.isLoading()`
 
 Returns `Boolean` - Whether guest page is still loading resources.
+
+### `<webview>.isLoadingMainFrame()`
+
+Returns `Boolean` - Whether the main frame (and not just iframes or frames within it) is
+still loading.
 
 ### `<webview>.isWaitingForResponse()`
 
@@ -449,6 +412,10 @@ Set guest page muted.
 ### `<webview>.isAudioMuted()`
 
 Returns `Boolean` - Whether guest page has been muted.
+
+### `<webview>.isCurrentlyAudible()`
+
+Returns `Boolean` - Whether audio is currently playing.
 
 ### `<webview>.undo()`
 
@@ -604,7 +571,38 @@ zoom percent divided by 100, so 300% = 3.0.
 
 Changes the zoom level to the specified level. The original size is 0 and each
 increment above or below represents zooming 20% larger or smaller to default
-limits of 300% and 50% of original size, respectively.
+limits of 300% and 50% of original size, respectively. The formula for this is
+`scale := 1.2 ^ level`.
+
+### `<webview>.getZoomFactor(callback)`
+
+* `callback` Function
+  * `zoomFactor` Number
+
+Sends a request to get current zoom factor, the `callback` will be called with
+`callback(zoomFactor)`.
+
+### `<webview>.getZoomLevel(callback)`
+
+* `callback` Function
+  * `zoomLevel` Number
+
+Sends a request to get current zoom level, the `callback` will be called with
+`callback(zoomLevel)`.
+
+### `<webview>.setVisualZoomLevelLimits(minimumLevel, maximumLevel)`
+
+* `minimumLevel` Number
+* `maximumLevel` Number
+
+Sets the maximum and minimum pinch-to-zoom level.
+
+### `<webview>.setLayoutZoomLevelLimits(minimumLevel, maximumLevel)`
+
+* `minimumLevel` Number
+* `maximumLevel` Number
+
+Sets the maximum and minimum layout-based (i.e. non-visual) zoom level.
 
 ### `<webview>.showDefinitionForSelection()` _macOS_
 
@@ -662,32 +660,6 @@ Corresponds to the points in time when the spinner of the tab starts spinning.
 ### Event: 'did-stop-loading'
 
 Corresponds to the points in time when the spinner of the tab stops spinning.
-
-### Event: 'did-get-response-details'
-
-Returns:
-
-* `status` Boolean
-* `newURL` String
-* `originalURL` String
-* `httpResponseCode` Integer
-* `requestMethod` String
-* `referrer` String
-* `headers` Object
-* `resourceType` String
-
-Fired when details regarding a requested resource is available.
-`status` indicates socket connection to download the resource.
-
-### Event: 'did-get-redirect-request'
-
-Returns:
-
-* `oldURL` String
-* `newURL` String
-* `isMainFrame` Boolean
-
-Fired when a redirect was received while requesting a resource.
 
 ### Event: 'dom-ready'
 
@@ -780,7 +752,7 @@ Fired when the guest page attempts to open a new browser window.
 The following example code opens the new url in system's default browser.
 
 ```javascript
-const {shell} = require('electron')
+const { shell } = require('electron')
 const webview = document.querySelector('webview')
 
 webview.addEventListener('new-window', (e) => {
@@ -857,7 +829,7 @@ Returns:
 
 Fired when the guest page has sent an asynchronous message to embedder page.
 
-With `sendToHost` method and `ipc-message` event you can easily communicate
+With `sendToHost` method and `ipc-message` event you can communicate
 between guest page and embedder page:
 
 ```javascript
@@ -872,7 +844,7 @@ webview.send('ping')
 
 ```javascript
 // In guest page.
-const {ipcRenderer} = require('electron')
+const { ipcRenderer } = require('electron')
 ipcRenderer.on('ping', () => {
   ipcRenderer.sendToHost('pong')
 })
@@ -939,4 +911,5 @@ Emitted when DevTools is closed.
 
 Emitted when DevTools is focused / opened.
 
-[blink-feature-string]: https://cs.chromium.org/chromium/src/third_party/WebKit/Source/platform/RuntimeEnabledFeatures.json5?l=62
+[runtime-enabled-features]: https://cs.chromium.org/chromium/src/third_party/blink/renderer/platform/runtime_enabled_features.json5?l=70
+[chrome-webview]: https://developer.chrome.com/apps/tags/webview

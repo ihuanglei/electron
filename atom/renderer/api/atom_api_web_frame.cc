@@ -13,21 +13,22 @@
 #include "atom/renderer/api/atom_api_spell_check_client.h"
 #include "base/memory/memory_pressure_listener.h"
 #include "content/public/renderer/render_frame.h"
+#include "content/public/renderer/render_frame_observer.h"
 #include "content/public/renderer/render_frame_visitor.h"
 #include "content/public/renderer/render_view.h"
 #include "native_mate/dictionary.h"
 #include "native_mate/object_template_builder.h"
-#include "third_party/WebKit/public/platform/WebCache.h"
-#include "third_party/WebKit/public/web/WebDocument.h"
-#include "third_party/WebKit/public/web/WebElement.h"
-#include "third_party/WebKit/public/web/WebFrameWidget.h"
-#include "third_party/WebKit/public/web/WebImeTextSpan.h"
-#include "third_party/WebKit/public/web/WebInputMethodController.h"
-#include "third_party/WebKit/public/web/WebLocalFrame.h"
-#include "third_party/WebKit/public/web/WebScriptExecutionCallback.h"
-#include "third_party/WebKit/public/web/WebScriptSource.h"
-#include "third_party/WebKit/public/web/WebView.h"
-#include "third_party/WebKit/Source/platform/weborigin/SchemeRegistry.h"
+#include "third_party/blink/public/platform/web_cache.h"
+#include "third_party/blink/public/web/web_document.h"
+#include "third_party/blink/public/web/web_element.h"
+#include "third_party/blink/public/web/web_frame_widget.h"
+#include "third_party/blink/public/web/web_ime_text_span.h"
+#include "third_party/blink/public/web/web_input_method_controller.h"
+#include "third_party/blink/public/web/web_local_frame.h"
+#include "third_party/blink/public/web/web_script_execution_callback.h"
+#include "third_party/blink/public/web/web_script_source.h"
+#include "third_party/blink/public/web/web_view.h"
+#include "third_party/blink/renderer/platform/weborigin/scheme_registry.h"
 
 #include "atom/common/node_includes.h"
 
@@ -43,8 +44,7 @@ struct Converter<blink::WebLocalFrame::ScriptExecutionType> {
       return false;
     if (execution_type == "asynchronous") {
       *out = blink::WebLocalFrame::kAsynchronous;
-    } else if (execution_type ==
-                   "asynchronousBlockingOnload") {
+    } else if (execution_type == "asynchronousBlockingOnload") {
       *out = blink::WebLocalFrame::kAsynchronousBlockingOnload;
     } else if (execution_type == "synchronous") {
       *out = blink::WebLocalFrame::kSynchronous;
@@ -63,11 +63,33 @@ namespace api {
 
 namespace {
 
+content::RenderFrame* GetRenderFrame(v8::Local<v8::Value> value) {
+  v8::Local<v8::Context> context =
+      v8::Local<v8::Object>::Cast(value)->CreationContext();
+  if (context.IsEmpty())
+    return nullptr;
+  blink::WebLocalFrame* frame = blink::WebLocalFrame::FrameForContext(context);
+  if (!frame)
+    return nullptr;
+  return content::RenderFrame::FromWebFrame(frame);
+}
+
+class RenderFrameStatus : public content::RenderFrameObserver {
+ public:
+  explicit RenderFrameStatus(content::RenderFrame* render_frame)
+      : content::RenderFrameObserver(render_frame) {}
+  ~RenderFrameStatus() final {}
+
+  bool is_ok() { return render_frame() != nullptr; }
+
+  // RenderFrameObserver implementation.
+  void OnDestruct() final {}
+};
+
 class ScriptExecutionCallback : public blink::WebScriptExecutionCallback {
  public:
   using CompletionCallback =
-      base::Callback<void(
-          const v8::Local<v8::Value>& result)>;
+      base::Callback<void(const v8::Local<v8::Value>& result)>;
 
   explicit ScriptExecutionCallback(const CompletionCallback& callback)
       : callback_(callback) {}
@@ -97,7 +119,7 @@ class FrameSpellChecker : public content::RenderFrameVisitor {
     main_frame_ = nullptr;
   }
   bool Visit(content::RenderFrame* render_frame) override {
-    auto view = render_frame->GetRenderView();
+    auto* view = render_frame->GetRenderView();
     if (view->GetMainRenderFrame() == main_frame_ ||
         (render_frame->IsMainFrame() && render_frame == main_frame_)) {
       render_frame->GetWebFrame()->SetTextCheckClient(spell_check_client_);
@@ -123,8 +145,7 @@ WebFrame::WebFrame(v8::Isolate* isolate, blink::WebLocalFrame* blink_frame)
   Init(isolate);
 }
 
-WebFrame::~WebFrame() {
-}
+WebFrame::~WebFrame() {}
 
 void WebFrame::SetName(const std::string& name) {
   web_frame_->SetName(blink::WebString::FromUTF8(name));
@@ -149,8 +170,8 @@ double WebFrame::GetZoomLevel() const {
 }
 
 double WebFrame::SetZoomFactor(double factor) {
-  return blink::WebView::ZoomLevelToZoomFactor(SetZoomLevel(
-      blink::WebView::ZoomFactorToZoomLevel(factor)));
+  return blink::WebView::ZoomLevelToZoomFactor(
+      SetZoomLevel(blink::WebView::ZoomFactorToZoomLevel(factor)));
 }
 
 double WebFrame::GetZoomFactor() const {
@@ -159,6 +180,7 @@ double WebFrame::GetZoomFactor() const {
 
 void WebFrame::SetVisualZoomLevelLimits(double min_level, double max_level) {
   web_frame_->View()->SetDefaultPageScaleLimits(min_level, max_level);
+  web_frame_->View()->SetIgnoreViewportTagScaleLimits(true);
 }
 
 void WebFrame::SetLayoutZoomLevelLimits(double min_level, double max_level) {
@@ -166,25 +188,29 @@ void WebFrame::SetLayoutZoomLevelLimits(double min_level, double max_level) {
 }
 
 v8::Local<v8::Value> WebFrame::RegisterEmbedderCustomElement(
-    const base::string16& name, v8::Local<v8::Object> options) {
+    const base::string16& name,
+    v8::Local<v8::Object> options) {
   return web_frame_->GetDocument().RegisterEmbedderCustomElement(
       blink::WebString::FromUTF16(name), options);
 }
 
-void WebFrame::RegisterElementResizeCallback(
-    int element_instance_id,
-    const GuestViewContainer::ResizeCallback& callback) {
-  auto guest_view_container = GuestViewContainer::FromID(element_instance_id);
-  if (guest_view_container)
-    guest_view_container->RegisterElementResizeCallback(callback);
-}
+int WebFrame::GetWebFrameId(v8::Local<v8::Value> content_window) {
+  // Get the WebLocalFrame before (possibly) executing any user-space JS while
+  // getting the |params|. We track the status of the RenderFrame via an
+  // observer in case it is deleted during user code execution.
+  content::RenderFrame* render_frame = GetRenderFrame(content_window);
+  RenderFrameStatus render_frame_status(render_frame);
 
-void WebFrame::AttachGuest(int id) {
-  content::RenderFrame::FromWebFrame(web_frame_)->AttachGuest(id);
-}
+  if (!render_frame_status.is_ok())
+    return -1;
 
-void WebFrame::DetachGuest(int id) {
-  content::RenderFrame::FromWebFrame(web_frame_)->DetachGuest(id);
+  blink::WebLocalFrame* frame = render_frame->GetWebFrame();
+  // Parent must exist.
+  blink::WebFrame* parent_frame = frame->Parent();
+  DCHECK(parent_frame);
+  DCHECK(parent_frame->IsWebLocalFrame());
+
+  return render_frame->GetRoutingID();
 }
 
 void WebFrame::SetSpellCheckProvider(mate::Arguments* args,
@@ -196,8 +222,8 @@ void WebFrame::SetSpellCheckProvider(mate::Arguments* args,
     return;
   }
 
-  std::unique_ptr<SpellCheckClient> client(new SpellCheckClient(
-      language, auto_spell_correct_turned_on, args->isolate(), provider));
+  auto client = std::make_unique<SpellCheckClient>(
+      language, auto_spell_correct_turned_on, args->isolate(), provider);
   // Set spellchecker for all live frames in the same process or
   // in the sandbox mode for all live sub frames to this WebFrame.
   FrameSpellChecker spell_checker(
@@ -205,12 +231,6 @@ void WebFrame::SetSpellCheckProvider(mate::Arguments* args,
   content::RenderFrame::ForEach(&spell_checker);
   spell_check_client_.swap(client);
   web_frame_->SetSpellCheckPanelHostClient(spell_check_client_.get());
-}
-
-void WebFrame::RegisterURLSchemeAsSecure(const std::string& scheme) {
-  // TODO(pfrazee): Remove 2.0
-  blink::SchemeRegistry::RegisterURLSchemeAsSecure(
-      WTF::String::FromUTF8(scheme.data(), scheme.length()));
 }
 
 void WebFrame::RegisterURLSchemeAsBypassingCSP(const std::string& scheme) {
@@ -244,10 +264,6 @@ void WebFrame::RegisterURLSchemeAsPrivileged(const std::string& scheme,
   // Register scheme to privileged list (https, wss, data, chrome-extension)
   WTF::String privileged_scheme(
       WTF::String::FromUTF8(scheme.data(), scheme.length()));
-  if (secure) {
-    // TODO(pfrazee): Remove 2.0
-    blink::SchemeRegistry::RegisterURLSchemeAsSecure(privileged_scheme);
-  }
   if (bypassCSP) {
     blink::SchemeRegistry::RegisterURLSchemeAsBypassingContentSecurityPolicy(
         privileged_scheme);
@@ -266,12 +282,9 @@ void WebFrame::RegisterURLSchemeAsPrivileged(const std::string& scheme,
 }
 
 void WebFrame::InsertText(const std::string& text) {
-  web_frame_->FrameWidget()
-            ->GetActiveWebInputMethodController()
-            ->CommitText(blink::WebString::FromUTF8(text),
-                         blink::WebVector<blink::WebImeTextSpan>(),
-                         blink::WebRange(),
-                         0);
+  web_frame_->FrameWidget()->GetActiveWebInputMethodController()->CommitText(
+      blink::WebString::FromUTF8(text),
+      blink::WebVector<blink::WebImeTextSpan>(), blink::WebRange(), 0);
 }
 
 void WebFrame::InsertCSS(const std::string& css) {
@@ -288,8 +301,7 @@ void WebFrame::ExecuteJavaScript(const base::string16& code,
       new ScriptExecutionCallback(completion_callback));
   web_frame_->RequestExecuteScriptAndReturnValue(
       blink::WebScriptSource(blink::WebString::FromUTF16(code)),
-      has_user_gesture,
-      callback.release());
+      has_user_gesture, callback.release());
 }
 
 void WebFrame::ExecuteJavaScriptInIsolatedWorld(
@@ -310,9 +322,9 @@ void WebFrame::ExecuteJavaScriptInIsolatedWorld(
       return;
     }
 
-    sources.emplace_back(blink::WebScriptSource(
-            blink::WebString::FromUTF16(code),
-            blink::WebURL(GURL(url)), start_line));
+    sources.emplace_back(
+        blink::WebScriptSource(blink::WebString::FromUTF16(code),
+                               blink::WebURL(GURL(url)), start_line));
   }
 
   bool has_user_gesture = false;
@@ -332,13 +344,11 @@ void WebFrame::ExecuteJavaScriptInIsolatedWorld(
       scriptExecutionType, callback.release());
 }
 
-void WebFrame::SetIsolatedWorldSecurityOrigin(
-    int world_id,
-    const std::string& origin_url) {
+void WebFrame::SetIsolatedWorldSecurityOrigin(int world_id,
+                                              const std::string& origin_url) {
   web_frame_->SetIsolatedWorldSecurityOrigin(
-      world_id,
-      blink::WebSecurityOrigin::CreateFromString(
-          blink::WebString::FromUTF8(origin_url)));
+      world_id, blink::WebSecurityOrigin::CreateFromString(
+                    blink::WebString::FromUTF8(origin_url)));
 }
 
 void WebFrame::SetIsolatedWorldContentSecurityPolicy(
@@ -348,9 +358,8 @@ void WebFrame::SetIsolatedWorldContentSecurityPolicy(
       world_id, blink::WebString::FromUTF8(security_policy));
 }
 
-void WebFrame::SetIsolatedWorldHumanReadableName(
-    int world_id,
-    const std::string& name) {
+void WebFrame::SetIsolatedWorldHumanReadableName(int world_id,
+                                                 const std::string& name) {
   web_frame_->SetIsolatedWorldHumanReadableName(
       world_id, blink::WebString::FromUTF8(name));
 }
@@ -371,15 +380,15 @@ void WebFrame::ClearCache(v8::Isolate* isolate) {
   isolate->IdleNotificationDeadline(0.5);
   blink::WebCache::Clear();
   base::MemoryPressureListener::NotifyMemoryPressure(
-    base::MemoryPressureListener::MEMORY_PRESSURE_LEVEL_CRITICAL);
+      base::MemoryPressureListener::MEMORY_PRESSURE_LEVEL_CRITICAL);
 }
 
 v8::Local<v8::Value> WebFrame::Opener() const {
   blink::WebFrame* frame = web_frame_->Opener();
   if (frame && frame->IsWebLocalFrame())
     return mate::CreateHandle(isolate(),
-                              new WebFrame(isolate(),
-                                           frame->ToWebLocalFrame())).ToV8();
+                              new WebFrame(isolate(), frame->ToWebLocalFrame()))
+        .ToV8();
   else
     return v8::Null(isolate());
 }
@@ -388,8 +397,8 @@ v8::Local<v8::Value> WebFrame::Parent() const {
   blink::WebFrame* frame = web_frame_->Parent();
   if (frame && frame->IsWebLocalFrame())
     return mate::CreateHandle(isolate(),
-                              new WebFrame(isolate(),
-                                           frame->ToWebLocalFrame())).ToV8();
+                              new WebFrame(isolate(), frame->ToWebLocalFrame()))
+        .ToV8();
   else
     return v8::Null(isolate());
 }
@@ -398,8 +407,8 @@ v8::Local<v8::Value> WebFrame::Top() const {
   blink::WebFrame* frame = web_frame_->Top();
   if (frame && frame->IsWebLocalFrame())
     return mate::CreateHandle(isolate(),
-                              new WebFrame(isolate(),
-                                           frame->ToWebLocalFrame())).ToV8();
+                              new WebFrame(isolate(), frame->ToWebLocalFrame()))
+        .ToV8();
   else
     return v8::Null(isolate());
 }
@@ -408,8 +417,8 @@ v8::Local<v8::Value> WebFrame::FirstChild() const {
   blink::WebFrame* frame = web_frame_->FirstChild();
   if (frame && frame->IsWebLocalFrame())
     return mate::CreateHandle(isolate(),
-                              new WebFrame(isolate(),
-                                           frame->ToWebLocalFrame())).ToV8();
+                              new WebFrame(isolate(), frame->ToWebLocalFrame()))
+        .ToV8();
   else
     return v8::Null(isolate());
 }
@@ -418,8 +427,8 @@ v8::Local<v8::Value> WebFrame::NextSibling() const {
   blink::WebFrame* frame = web_frame_->NextSibling();
   if (frame && frame->IsWebLocalFrame())
     return mate::CreateHandle(isolate(),
-                              new WebFrame(isolate(),
-                                           frame->ToWebLocalFrame())).ToV8();
+                              new WebFrame(isolate(), frame->ToWebLocalFrame()))
+        .ToV8();
   else
     return v8::Null(isolate());
 }
@@ -431,25 +440,44 @@ v8::Local<v8::Value> WebFrame::GetFrameForSelector(
   blink::WebLocalFrame* element_frame =
       blink::WebLocalFrame::FromFrameOwnerElement(element);
   if (element_frame)
-    return mate::CreateHandle(isolate(),
-                              new WebFrame(isolate(), element_frame)).ToV8();
+    return mate::CreateHandle(isolate(), new WebFrame(isolate(), element_frame))
+        .ToV8();
   else
     return v8::Null(isolate());
 }
 
 v8::Local<v8::Value> WebFrame::FindFrameByName(const std::string& name) const {
-  blink::WebLocalFrame* local_frame = web_frame_->FindFrameByName(
-      blink::WebString::FromUTF8(name))->ToWebLocalFrame();
+  blink::WebLocalFrame* local_frame =
+      web_frame_->FindFrameByName(blink::WebString::FromUTF8(name))
+          ->ToWebLocalFrame();
   if (local_frame)
-    return mate::CreateHandle(isolate(),
-                              new WebFrame(isolate(), local_frame)).ToV8();
+    return mate::CreateHandle(isolate(), new WebFrame(isolate(), local_frame))
+        .ToV8();
   else
     return v8::Null(isolate());
 }
 
+v8::Local<v8::Value> WebFrame::FindFrameByRoutingId(int routing_id) const {
+  content::RenderFrame* render_frame =
+      content::RenderFrame::FromRoutingID(routing_id);
+  blink::WebLocalFrame* local_frame = nullptr;
+  if (render_frame)
+    local_frame = render_frame->GetWebFrame();
+  if (local_frame)
+    return mate::CreateHandle(isolate(), new WebFrame(isolate(), local_frame))
+        .ToV8();
+  else
+    return v8::Null(isolate());
+}
+
+v8::Local<v8::Value> WebFrame::RoutingId() const {
+  int routing_id = content::RenderFrame::GetRoutingIdForWebFrame(web_frame_);
+  return v8::Number::New(isolate(), routing_id);
+}
+
 // static
-void WebFrame::BuildPrototype(
-    v8::Isolate* isolate, v8::Local<v8::FunctionTemplate> prototype) {
+void WebFrame::BuildPrototype(v8::Isolate* isolate,
+                              v8::Local<v8::FunctionTemplate> prototype) {
   prototype->SetClassName(mate::StringToV8(isolate, "WebFrame"));
   mate::ObjectTemplateBuilder(isolate, prototype->PrototypeTemplate())
       .SetMethod("setName", &WebFrame::SetName)
@@ -463,13 +491,8 @@ void WebFrame::BuildPrototype(
                  &WebFrame::SetLayoutZoomLevelLimits)
       .SetMethod("registerEmbedderCustomElement",
                  &WebFrame::RegisterEmbedderCustomElement)
-      .SetMethod("registerElementResizeCallback",
-                 &WebFrame::RegisterElementResizeCallback)
-      .SetMethod("attachGuest", &WebFrame::AttachGuest)
-      .SetMethod("detachGuest", &WebFrame::DetachGuest)
+      .SetMethod("getWebFrameId", &WebFrame::GetWebFrameId)
       .SetMethod("setSpellCheckProvider", &WebFrame::SetSpellCheckProvider)
-      .SetMethod("registerURLSchemeAsSecure",
-                 &WebFrame::RegisterURLSchemeAsSecure)
       .SetMethod("registerURLSchemeAsBypassingCSP",
                  &WebFrame::RegisterURLSchemeAsBypassingCSP)
       .SetMethod("registerURLSchemeAsPrivileged",
@@ -493,7 +516,9 @@ void WebFrame::BuildPrototype(
       .SetProperty("parent", &WebFrame::Parent)
       .SetProperty("top", &WebFrame::Top)
       .SetProperty("firstChild", &WebFrame::FirstChild)
-      .SetProperty("nextSibling", &WebFrame::NextSibling);
+      .SetProperty("nextSibling", &WebFrame::NextSibling)
+      .SetProperty("routingId", &WebFrame::RoutingId)
+      .SetMethod("findFrameByRoutingId", &WebFrame::FindFrameByRoutingId);
 }
 
 }  // namespace api
@@ -504,8 +529,10 @@ namespace {
 
 using atom::api::WebFrame;
 
-void Initialize(v8::Local<v8::Object> exports, v8::Local<v8::Value> unused,
-                v8::Local<v8::Context> context, void* priv) {
+void Initialize(v8::Local<v8::Object> exports,
+                v8::Local<v8::Value> unused,
+                v8::Local<v8::Context> context,
+                void* priv) {
   v8::Isolate* isolate = context->GetIsolate();
   mate::Dictionary dict(isolate, exports);
   dict.Set("webFrame", WebFrame::Create(isolate));

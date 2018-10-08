@@ -4,11 +4,18 @@
 
 #include "atom/browser/ui/views/menu_bar.h"
 
+#include <memory>
+#include <string>
+
 #include "atom/browser/ui/views/menu_delegate.h"
 #include "atom/browser/ui/views/submenu_button.h"
 #include "ui/base/models/menu_model.h"
 #include "ui/views/background.h"
 #include "ui/views/layout/box_layout.h"
+
+#if defined(USE_X11)
+#include "chrome/browser/ui/libgtkui/gtk_util.h"
+#endif
 
 #if defined(OS_WIN)
 #include "ui/gfx/color_utils.h"
@@ -18,33 +25,24 @@ namespace atom {
 
 namespace {
 
-const char kViewClassName[] = "ElectronMenuBar";
-
 // Default color of the menu bar.
 const SkColor kDefaultColor = SkColorSetARGB(255, 233, 233, 233);
 
 }  // namespace
 
-MenuBar::MenuBar(NativeWindow* window)
-    : background_color_(kDefaultColor), menu_model_(NULL), window_(window) {
+const char MenuBar::kViewClassName[] = "ElectronMenuBar";
+
+MenuBar::MenuBar(views::View* window)
+    : background_color_(kDefaultColor), window_(window) {
   RefreshColorCache();
   UpdateViewColors();
-  SetLayoutManager(new views::BoxLayout(views::BoxLayout::kHorizontal));
+  SetLayoutManager(
+      std::make_unique<views::BoxLayout>(views::BoxLayout::kHorizontal));
+  window_->GetFocusManager()->AddFocusChangeListener(this);
 }
 
-MenuBar::~MenuBar() {}
-
-void MenuBar::AddedToWidget() {
-  auto fm = GetFocusManager();
-  fm->AddFocusChangeListener(this);
-  // Note that we don't own fm -- this manages the _connection_
-  focus_manager_.reset(fm, [this](views::FocusManager* fm) {
-    fm->RemoveFocusChangeListener(this);
-  });
-}
-
-void MenuBar::RemovedFromWidget() {
-  focus_manager_.reset();
+MenuBar::~MenuBar() {
+  window_->GetFocusManager()->RemoveFocusChangeListener(this);
 }
 
 void MenuBar::SetMenu(AtomMenuModel* model) {
@@ -70,7 +68,7 @@ bool MenuBar::HasAccelerator(base::char16 key) {
 }
 
 void MenuBar::ActivateAccelerator(base::char16 key) {
-  auto child = FindAccelChild(key);
+  auto* child = FindAccelChild(key);
   if (child)
     static_cast<SubmenuButton*>(child)->Activate(nullptr);
 }
@@ -111,8 +109,8 @@ void MenuBar::OnMenuButtonClicked(views::MenuButton* source,
   if (!menu_model_)
     return;
 
-  if (!window_->IsFocused())
-    window_->Focus(true);
+  if (!window_->HasFocus())
+    window_->RequestFocus();
 
   int id = source->tag();
   AtomMenuModel::ItemType type = menu_model_->GetTypeAt(id);
@@ -130,13 +128,17 @@ void MenuBar::RefreshColorCache(const ui::NativeTheme* theme) {
   if (!theme)
     theme = ui::NativeTheme::GetInstanceForNativeUi();
   if (theme) {
-    background_color_ =
-        theme->GetSystemColor(ui::NativeTheme::kColorId_MenuBackgroundColor);
 #if defined(USE_X11)
+    const std::string menubar_selector = "GtkMenuBar#menubar";
+    background_color_ = libgtkui::GetBgColor(menubar_selector);
+
     enabled_color_ = theme->GetSystemColor(
         ui::NativeTheme::kColorId_EnabledMenuItemForegroundColor);
     disabled_color_ = theme->GetSystemColor(
         ui::NativeTheme::kColorId_DisabledMenuItemForegroundColor);
+#else
+    background_color_ =
+        theme->GetSystemColor(ui::NativeTheme::kColorId_MenuBackgroundColor);
 #endif
   }
 #if defined(OS_WIN)
@@ -160,7 +162,7 @@ void MenuBar::OnDidChangeFocus(View* focused_before, View* focused_now) {
 void MenuBar::RebuildChildren() {
   RemoveAllChildViews(true);
   for (int i = 0, n = GetItemCount(); i < n; ++i) {
-    auto button =
+    auto* button =
         new SubmenuButton(menu_model_->GetLabelAt(i), this, background_color_);
     button->set_tag(i);
     AddChildView(button);
@@ -178,7 +180,7 @@ void MenuBar::UpdateViewColors() {
 #if defined(USE_X11)
   const auto& textColor = has_focus_ ? enabled_color_ : disabled_color_;
   for (auto* child : GetChildrenInZOrder()) {
-    auto button = static_cast<SubmenuButton*>(child);
+    auto* button = static_cast<SubmenuButton*>(child);
     button->SetTextColor(views::Button::STATE_NORMAL, textColor);
     button->SetTextColor(views::Button::STATE_DISABLED, disabled_color_);
     button->SetTextColor(views::Button::STATE_PRESSED, enabled_color_);
@@ -187,7 +189,7 @@ void MenuBar::UpdateViewColors() {
   }
 #elif defined(OS_WIN)
   for (auto* child : GetChildrenInZOrder()) {
-    auto button = static_cast<SubmenuButton*>(child);
+    auto* button = static_cast<SubmenuButton*>(child);
     button->SetUnderlineColor(color_utils::GetSysSkColor(COLOR_MENUTEXT));
   }
 #endif

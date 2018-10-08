@@ -11,17 +11,17 @@ For example, when creating a tray or setting a window's icon, you can pass an
 image file path as a `String`:
 
 ```javascript
-const {BrowserWindow, Tray} = require('electron')
+const { BrowserWindow, Tray } = require('electron')
 
 const appIcon = new Tray('/Users/somebody/images/icon.png')
-let win = new BrowserWindow({icon: '/Users/somebody/images/window.png'})
+let win = new BrowserWindow({ icon: '/Users/somebody/images/window.png' })
 console.log(appIcon, win)
 ```
 
 Or read the image from the clipboard which returns a `NativeImage`:
 
 ```javascript
-const {clipboard, Tray} = require('electron')
+const { clipboard, Tray } = require('electron')
 const image = clipboard.readImage()
 const appIcon = new Tray(image)
 console.log(appIcon)
@@ -73,7 +73,7 @@ images/
 
 
 ```javascript
-const {Tray} = require('electron')
+const { Tray } = require('electron')
 let appIcon = new Tray('/Users/somebody/images/icon.png')
 console.log(appIcon)
 ```
@@ -94,7 +94,7 @@ Following suffixes for DPI are also supported:
 
 ## Template Image
 
-Template images consist of black and clear colors (and an alpha channel).
+Template images consist of black and an alpha channel.
 Template images are not intended to be used as standalone images and are usually
 mixed with other content to create the desired final appearance.
 

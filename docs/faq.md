@@ -9,7 +9,7 @@ In almost all cases, these errors are the result of network problems and not
 actual issues with the `electron` npm package. Errors like `ELIFECYCLE`,
 `EAI_AGAIN`, `ECONNRESET`, and `ETIMEDOUT` are all indications of such
 network problems. The best resolution is to try switching networks, or
-just wait a bit and try installing again.
+wait a bit and try installing again.
 
 You can also attempt to download Electron directly from
 [electron/electron/releases](https://github.com/electron/electron/releases)
@@ -78,7 +78,7 @@ If you want a quick fix, you can make the variables global by changing your
 code from this:
 
 ```javascript
-const {app, Tray} = require('electron')
+const { app, Tray } = require('electron')
 app.on('ready', () => {
   const tray = new Tray('/path/to/icon.png')
   tray.setTitle('hello world')
@@ -88,7 +88,7 @@ app.on('ready', () => {
 to this:
 
 ```javascript
-const {app, Tray} = require('electron')
+const { app, Tray } = require('electron')
 let tray = null
 app.on('ready', () => {
   tray = new Tray('/path/to/icon.png')
@@ -106,7 +106,7 @@ To solve this, you can turn off node integration in Electron:
 
 ```javascript
 // In the main process.
-const {BrowserWindow} = require('electron')
+const { BrowserWindow } = require('electron')
 let win = new BrowserWindow({
   webPreferences: {
     nodeIntegration: false

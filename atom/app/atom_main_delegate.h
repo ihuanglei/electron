@@ -5,6 +5,7 @@
 #ifndef ATOM_APP_ATOM_MAIN_DELEGATE_H_
 #define ATOM_APP_ATOM_MAIN_DELEGATE_H_
 
+#include <memory>
 #include <string>
 
 #include "brightray/common/content_client.h"
@@ -15,7 +16,7 @@ namespace atom {
 class AtomMainDelegate : public brightray::MainDelegate {
  public:
   AtomMainDelegate();
-  ~AtomMainDelegate();
+  ~AtomMainDelegate() override;
 
  protected:
   // content::ContentMainDelegate:

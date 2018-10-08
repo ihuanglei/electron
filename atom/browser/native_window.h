@@ -11,19 +11,14 @@
 #include <vector>
 
 #include "atom/browser/native_window_observer.h"
-#include "atom/browser/ui/atom_menu_model.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
 #include "base/supports_user_data.h"
 #include "content/public/browser/web_contents_user_data.h"
 #include "extensions/browser/app_window/size_constraints.h"
-#include "native_mate/persistent_dictionary.h"
+#include "ui/views/widget/widget_delegate.h"
 
 class SkRegion;
-
-namespace brightray {
-class InspectableWebContents;
-}
 
 namespace content {
 struct NativeWebKeyboardEvent;
@@ -35,34 +30,37 @@ class Point;
 class Rect;
 class RectF;
 class Size;
-}
+}  // namespace gfx
 
 namespace mate {
 class Dictionary;
-}
+class PersistentDictionary;
+}  // namespace mate
 
 namespace atom {
 
+class AtomMenuModel;
 class NativeBrowserView;
 
 struct DraggableRegion;
 
-class NativeWindow : public base::SupportsUserData {
+class NativeWindow : public base::SupportsUserData,
+                     public views::WidgetDelegate {
  public:
   ~NativeWindow() override;
 
   // Create window with existing WebContents, the caller is responsible for
   // managing the window's live.
-  static NativeWindow* Create(
-      brightray::InspectableWebContents* inspectable_web_contents,
-      const mate::Dictionary& options,
-      NativeWindow* parent = nullptr);
+  static NativeWindow* Create(const mate::Dictionary& options,
+                              NativeWindow* parent = nullptr);
 
   void InitFromOptions(const mate::Dictionary& options);
 
+  virtual void SetContentView(views::View* view) = 0;
+
   virtual void Close() = 0;
   virtual void CloseImmediately() = 0;
-  virtual bool IsClosed() const { return is_closed_; }
+  virtual bool IsClosed() const;
   virtual void Focus(bool focus) = 0;
   virtual bool IsFocused() = 0;
   virtual void Show() = 0;
@@ -89,6 +87,8 @@ class NativeWindow : public base::SupportsUserData {
   virtual gfx::Size GetContentSize();
   virtual void SetContentBounds(const gfx::Rect& bounds, bool animate = false);
   virtual gfx::Rect GetContentBounds();
+  virtual bool IsNormal();
+  virtual gfx::Rect GetNormalBounds() = 0;
   virtual void SetSizeConstraints(
       const extensions::SizeConstraints& size_constraints);
   virtual extensions::SizeConstraints GetSizeConstraints() const;
@@ -99,10 +99,15 @@ class NativeWindow : public base::SupportsUserData {
   virtual gfx::Size GetMinimumSize() const;
   virtual void SetMaximumSize(const gfx::Size& size);
   virtual gfx::Size GetMaximumSize() const;
+  virtual gfx::Size GetContentMinimumSize() const;
+  virtual gfx::Size GetContentMaximumSize() const;
   virtual void SetSheetOffset(const double offsetX, const double offsetY);
   virtual double GetSheetOffsetX();
   virtual double GetSheetOffsetY();
   virtual void SetResizable(bool resizable) = 0;
+#if defined(OS_WIN) || defined(OS_MACOSX)
+  virtual void MoveTop() = 0;
+#endif
   virtual bool IsResizable() = 0;
   virtual void SetMovable(bool movable) = 0;
   virtual bool IsMovable() = 0;
@@ -150,20 +155,21 @@ class NativeWindow : public base::SupportsUserData {
 
   // Taskbar/Dock APIs.
   enum ProgressState {
-    PROGRESS_NONE,               // no progress, no marking
-    PROGRESS_INDETERMINATE,      // progress, indeterminate
-    PROGRESS_ERROR,              // progress, errored (red)
-    PROGRESS_PAUSED,             // progress, paused (yellow)
-    PROGRESS_NORMAL,             // progress, not marked (green)
+    PROGRESS_NONE,           // no progress, no marking
+    PROGRESS_INDETERMINATE,  // progress, indeterminate
+    PROGRESS_ERROR,          // progress, errored (red)
+    PROGRESS_PAUSED,         // progress, paused (yellow)
+    PROGRESS_NORMAL,         // progress, not marked (green)
   };
 
-  virtual void SetProgressBar(double progress,
-                              const ProgressState state) = 0;
+  virtual void SetProgressBar(double progress, const ProgressState state) = 0;
   virtual void SetOverlayIcon(const gfx::Image& overlay,
                               const std::string& description) = 0;
 
   // Workspace APIs.
-  virtual void SetVisibleOnAllWorkspaces(bool visible) = 0;
+  virtual void SetVisibleOnAllWorkspaces(bool visible,
+                                         bool visibleOnFullScreen = false) = 0;
+
   virtual bool IsVisibleOnAllWorkspaces() = 0;
 
   virtual void SetAutoHideCursor(bool auto_hide);
@@ -184,6 +190,9 @@ class NativeWindow : public base::SupportsUserData {
   virtual void MoveTabToNewWindow();
   virtual void ToggleTabBar();
   virtual bool AddTabbedWindow(NativeWindow* window);
+
+  // Returns false if unsupported.
+  virtual bool SetWindowButtonVisibility(bool visible);
 
   // Toggle the menu bar.
   virtual void SetAutoHideMenuBar(bool auto_hide);
@@ -215,13 +224,6 @@ class NativeWindow : public base::SupportsUserData {
   virtual void HandleKeyboardEvent(
       content::WebContents*,
       const content::NativeWebKeyboardEvent& event) {}
-  virtual void ShowAutofillPopup(
-    content::RenderFrameHost* frame_host,
-    content::WebContents* web_contents,
-    const gfx::RectF& bounds,
-    const std::vector<base::string16>& values,
-    const std::vector<base::string16>& labels) {}
-  virtual void HideAutofillPopup(content::RenderFrameHost* frame_host) {}
 
   // Public API used by platform-dependent delegates and observers to send UI
   // related notifications.
@@ -238,7 +240,10 @@ class NativeWindow : public base::SupportsUserData {
   void NotifyWindowMinimize();
   void NotifyWindowRestore();
   void NotifyWindowMove();
+  void NotifyWindowWillResize(const gfx::Rect& new_bounds,
+                              bool* prevent_default);
   void NotifyWindowResize();
+  void NotifyWindowWillMove(const gfx::Rect& new_bounds, bool* prevent_default);
   void NotifyWindowMoved();
   void NotifyWindowScrollTouchBegin();
   void NotifyWindowScrollTouchEnd();
@@ -249,21 +254,23 @@ class NativeWindow : public base::SupportsUserData {
   void NotifyWindowLeaveFullScreen();
   void NotifyWindowEnterHtmlFullScreen();
   void NotifyWindowLeaveHtmlFullScreen();
+  void NotifyWindowAlwaysOnTopChanged();
   void NotifyWindowExecuteWindowsCommand(const std::string& command);
   void NotifyTouchBarItemInteraction(const std::string& item_id,
                                      const base::DictionaryValue& details);
   void NotifyNewWindowForTab();
 
-  #if defined(OS_WIN)
+#if defined(OS_WIN)
   void NotifyWindowMessage(UINT message, WPARAM w_param, LPARAM l_param);
-  #endif
+#endif
 
-  void AddObserver(NativeWindowObserver* obs) {
-    observers_.AddObserver(obs);
-  }
+  void AddObserver(NativeWindowObserver* obs) { observers_.AddObserver(obs); }
   void RemoveObserver(NativeWindowObserver* obs) {
     observers_.RemoveObserver(obs);
   }
+
+  views::Widget* widget() const { return widget_.get(); }
+  views::View* content_view() const { return content_view_; }
 
   bool has_frame() const { return has_frame_; }
   void set_has_frame(bool has_frame) { has_frame_ = has_frame; }
@@ -271,59 +278,61 @@ class NativeWindow : public base::SupportsUserData {
   bool transparent() const { return transparent_; }
   bool enable_larger_than_screen() const { return enable_larger_than_screen_; }
 
-  void set_is_offscreen_dummy(bool is_dummy) { is_osr_dummy_ = is_dummy; }
-  bool is_offscreen_dummy() const { return is_osr_dummy_; }
-
   NativeBrowserView* browser_view() const { return browser_view_; }
   NativeWindow* parent() const { return parent_; }
   bool is_modal() const { return is_modal_; }
 
  protected:
-  NativeWindow(brightray::InspectableWebContents* inspectable_web_contents,
-               const mate::Dictionary& options,
-               NativeWindow* parent);
+  NativeWindow(const mate::Dictionary& options, NativeWindow* parent);
 
+  // views::WidgetDelegate:
+  views::Widget* GetWidget() override;
+  const views::Widget* GetWidget() const override;
+
+  void set_content_view(views::View* view) { content_view_ = view; }
   void set_browser_view(NativeBrowserView* browser_view) {
     browser_view_ = browser_view;
   }
 
  private:
+  std::unique_ptr<views::Widget> widget_;
+
+  // The content view, weak ref.
+  views::View* content_view_ = nullptr;
+
   // Whether window has standard frame.
-  bool has_frame_;
+  bool has_frame_ = true;
 
   // Whether window is transparent.
-  bool transparent_;
+  bool transparent_ = false;
 
   // Minimum and maximum size, stored as content size.
   extensions::SizeConstraints size_constraints_;
 
   // Whether window can be resized larger than screen.
-  bool enable_larger_than_screen_;
+  bool enable_larger_than_screen_ = false;
 
   // The windows has been closed.
-  bool is_closed_;
+  bool is_closed_ = false;
 
   // Used to display sheets at the appropriate horizontal and vertical offsets
   // on macOS.
-  double sheet_offset_x_;
-  double sheet_offset_y_;
+  double sheet_offset_x_ = 0.0;
+  double sheet_offset_y_ = 0.0;
 
   // Used to maintain the aspect ratio of a view which is inside of the
   // content view.
-  double aspect_ratio_;
+  double aspect_ratio_ = 0.0;
   gfx::Size aspect_ratio_extraSize_;
 
   // The parent window, it is guaranteed to be valid during this window's life.
-  NativeWindow* parent_;
+  NativeWindow* parent_ = nullptr;
 
   // Is this a modal window.
-  bool is_modal_;
-
-  // Is this a dummy window for an offscreen WebContents.
-  bool is_osr_dummy_;
+  bool is_modal_ = false;
 
   // The browser view layer.
-  NativeBrowserView* browser_view_;
+  NativeBrowserView* browser_view_ = nullptr;
 
   // Observers of this window.
   base::ObserverList<NativeWindowObserver> observers_;
@@ -334,11 +343,11 @@ class NativeWindow : public base::SupportsUserData {
 };
 
 // This class provides a hook to get a NativeWindow from a WebContents.
-class NativeWindowRelay :
-    public content::WebContentsUserData<NativeWindowRelay> {
+class NativeWindowRelay
+    : public content::WebContentsUserData<NativeWindowRelay> {
  public:
-  explicit NativeWindowRelay(base::WeakPtr<NativeWindow> window)
-    : key(UserDataKey()), window(window) {}
+  explicit NativeWindowRelay(base::WeakPtr<NativeWindow> window);
+  ~NativeWindowRelay() override;
 
   static void* UserDataKey() {
     return content::WebContentsUserData<NativeWindowRelay>::UserDataKey();

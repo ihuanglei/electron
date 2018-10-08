@@ -5,6 +5,8 @@
 #ifndef ATOM_BROWSER_UI_VIEWS_SUBMENU_BUTTON_H_
 #define ATOM_BROWSER_UI_VIEWS_SUBMENU_BUTTON_H_
 
+#include <memory>
+
 #include "ui/views/animation/ink_drop_highlight.h"
 #include "ui/views/controls/button/menu_button.h"
 
@@ -16,7 +18,7 @@ class SubmenuButton : public views::MenuButton {
   SubmenuButton(const base::string16& title,
                 views::MenuButtonListener* menu_button_listener,
                 const SkColor& background_color);
-  virtual ~SubmenuButton();
+  ~SubmenuButton() override;
 
   void SetAcceleratorVisibility(bool visible);
   void SetUnderlineColor(SkColor color);
@@ -33,19 +35,21 @@ class SubmenuButton : public views::MenuButton {
  private:
   bool GetUnderlinePosition(const base::string16& text,
                             base::char16* accelerator,
-                            int* start, int* end) const;
-  void GetCharacterPosition(
-      const base::string16& text, int index, int* pos) const;
+                            int* start,
+                            int* end) const;
+  void GetCharacterPosition(const base::string16& text,
+                            int index,
+                            int* pos) const;
 
-  base::char16 accelerator_;
+  base::char16 accelerator_ = 0;
 
-  bool show_underline_;
+  bool show_underline_ = false;
 
-  int underline_start_;
-  int underline_end_;
-  int text_width_;
-  int text_height_;
-  SkColor underline_color_;
+  int underline_start_ = 0;
+  int underline_end_ = 0;
+  int text_width_ = 0;
+  int text_height_ = 0;
+  SkColor underline_color_ = SK_ColorBLACK;
   SkColor background_color_;
 
   DISALLOW_COPY_AND_ASSIGN(SubmenuButton);

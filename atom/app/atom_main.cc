@@ -24,7 +24,7 @@
 #include "base/win/windows_version.h"
 #include "content/public/app/sandbox_helper_win.h"
 #include "sandbox/win/src/sandbox_types.h"
-#elif defined(OS_LINUX)  // defined(OS_WIN)
+#elif defined(OS_LINUX)                   // defined(OS_WIN)
 #include "atom/app/atom_main_delegate.h"  // NOLINT
 #include "content/public/app/content_main.h"
 #else  // defined(OS_LINUX)
@@ -35,14 +35,14 @@
 #include "atom/common/atom_command_line.h"
 #include "base/at_exit.h"
 #include "base/i18n/icu_util.h"
+#include "electron/buildflags/buildflags.h"
 
 namespace {
 
-#ifdef ENABLE_RUN_AS_NODE
-const auto kRunAsNode = "ELECTRON_RUN_AS_NODE";
+#if BUILDFLAG(ENABLE_RUN_AS_NODE)
+const char kRunAsNode[] = "ELECTRON_RUN_AS_NODE";
 #endif
 
-#if defined(ENABLE_RUN_AS_NODE) || defined(OS_WIN)
 bool IsEnvSet(const char* name) {
 #if defined(OS_WIN)
   size_t required_size;
@@ -53,7 +53,6 @@ bool IsEnvSet(const char* name) {
   return indicator && indicator[0] != '\0';
 #endif
 }
-#endif
 
 }  // namespace
 
@@ -71,7 +70,7 @@ int APIENTRY wWinMain(HINSTANCE instance, HINSTANCE, wchar_t* cmd, int) {
 
 #ifdef _DEBUG
   // Don't display assert dialog boxes in CI test runs
-  static const auto kCI = "ELECTRON_CI";
+  static const char* kCI = "ELECTRON_CI";
   bool is_ci = IsEnvSet(kCI);
   if (!is_ci) {
     for (int i = 0; i < arguments.argc; ++i) {
@@ -93,7 +92,7 @@ int APIENTRY wWinMain(HINSTANCE instance, HINSTANCE, wchar_t* cmd, int) {
   }
 #endif
 
-#ifdef ENABLE_RUN_AS_NODE
+#if BUILDFLAG(ENABLE_RUN_AS_NODE)
   bool run_as_node = IsEnvSet(kRunAsNode);
 #else
   bool run_as_node = false;
@@ -117,12 +116,10 @@ int APIENTRY wWinMain(HINSTANCE instance, HINSTANCE, wchar_t* cmd, int) {
   // from within the CRT's atexit facility, ensuring the heap functions are
   // still active. The second invocation from the OS loader will be a no-op.
   extern void NTAPI OnThreadExit(PVOID module, DWORD reason, PVOID reserved);
-  atexit([]() {
-    OnThreadExit(nullptr, DLL_THREAD_DETACH, nullptr);
-  });
+  atexit([]() { OnThreadExit(nullptr, DLL_THREAD_DETACH, nullptr); });
 #endif
 
-#ifdef ENABLE_RUN_AS_NODE
+#if BUILDFLAG(ENABLE_RUN_AS_NODE)
   if (run_as_node) {
     std::vector<char*> argv(arguments.argc);
     std::transform(
@@ -158,7 +155,7 @@ int APIENTRY wWinMain(HINSTANCE instance, HINSTANCE, wchar_t* cmd, int) {
 #elif defined(OS_LINUX)  // defined(OS_WIN)
 
 int main(int argc, char* argv[]) {
-#ifdef ENABLE_RUN_AS_NODE
+#if BUILDFLAG(ENABLE_RUN_AS_NODE)
   if (IsEnvSet(kRunAsNode)) {
     base::i18n::InitializeICU();
     base::AtExitManager atexit_manager;
@@ -177,7 +174,7 @@ int main(int argc, char* argv[]) {
 #else  // defined(OS_LINUX)
 
 int main(int argc, char* argv[]) {
-#ifdef ENABLE_RUN_AS_NODE
+#if BUILDFLAG(ENABLE_RUN_AS_NODE)
   if (IsEnvSet(kRunAsNode)) {
     return AtomInitializeICUandStartNode(argc, argv);
   }

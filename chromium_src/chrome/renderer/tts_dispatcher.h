@@ -9,8 +9,8 @@
 
 #include "base/containers/hash_tables.h"
 #include "content/public/renderer/render_thread_observer.h"
-#include "third_party/WebKit/public/platform/WebSpeechSynthesizer.h"
-#include "third_party/WebKit/public/platform/WebSpeechSynthesizerClient.h"
+#include "third_party/blink/public/platform/web_speech_synthesizer.h"
+#include "third_party/blink/public/platform/web_speech_synthesizer_client.h"
 
 namespace IPC {
 class Message;
@@ -25,24 +25,22 @@ struct TtsVoice;
 // itself when deleted. There can be multiple TtsDispatchers alive at once,
 // so each one routes IPC messages to its WebSpeechSynthesizerClient only if
 // the utterance id (which is globally unique) matches.
-class TtsDispatcher
-    : public blink::WebSpeechSynthesizer,
-      public content::RenderThreadObserver {
+class TtsDispatcher : public blink::WebSpeechSynthesizer,
+                      public content::RenderThreadObserver {
  public:
   explicit TtsDispatcher(blink::WebSpeechSynthesizerClient* client);
-  virtual ~TtsDispatcher();
+  ~TtsDispatcher() override;
 
  private:
   // RenderProcessObserver override.
-  virtual bool OnControlMessageReceived(const IPC::Message& message) override;
+  bool OnControlMessageReceived(const IPC::Message& message) override;
 
   // blink::WebSpeechSynthesizer implementation.
-  virtual void UpdateVoiceList() override;
-  virtual void Speak(const blink::WebSpeechSynthesisUtterance& utterance)
-      override;
-  virtual void Pause() override;
-  virtual void Resume() override;
-  virtual void Cancel() override;
+  void UpdateVoiceList() override;
+  void Speak(const blink::WebSpeechSynthesisUtterance& utterance) override;
+  void Pause() override;
+  void Resume() override;
+  void Cancel() override;
 
   blink::WebSpeechSynthesisUtterance FindUtterance(int utterance_id);
 

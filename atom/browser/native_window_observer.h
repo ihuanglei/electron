@@ -16,6 +16,10 @@
 #include <windows.h>
 #endif
 
+namespace gfx {
+class Rect;
+}
+
 namespace atom {
 
 class NativeWindowObserver {
@@ -63,7 +67,11 @@ class NativeWindowObserver {
   virtual void OnWindowUnmaximize() {}
   virtual void OnWindowMinimize() {}
   virtual void OnWindowRestore() {}
+  virtual void OnWindowWillResize(const gfx::Rect& new_bounds,
+                                  bool* prevent_default) {}
   virtual void OnWindowResize() {}
+  virtual void OnWindowWillMove(const gfx::Rect& new_bounds,
+                                bool* prevent_default) {}
   virtual void OnWindowMove() {}
   virtual void OnWindowMoved() {}
   virtual void OnWindowScrollTouchBegin() {}
@@ -75,14 +83,15 @@ class NativeWindowObserver {
   virtual void OnWindowLeaveFullScreen() {}
   virtual void OnWindowEnterHtmlFullScreen() {}
   virtual void OnWindowLeaveHtmlFullScreen() {}
+  virtual void OnWindowAlwaysOnTopChanged() {}
   virtual void OnTouchBarItemResult(const std::string& item_id,
                                     const base::DictionaryValue& details) {}
   virtual void OnNewWindowForTab() {}
 
-  // Called when window message received
-  #if defined(OS_WIN)
+// Called when window message received
+#if defined(OS_WIN)
   virtual void OnWindowMessage(UINT message, WPARAM w_param, LPARAM l_param) {}
-  #endif
+#endif
 
   // Called on Windows when App Commands arrive (WM_APPCOMMAND)
   virtual void OnExecuteWindowsCommand(const std::string& command_name) {}

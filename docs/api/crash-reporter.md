@@ -8,7 +8,7 @@ The following is an example of automatically submitting a crash report to a
 remote server:
 
 ```javascript
-const {crashReporter} = require('electron')
+const { crashReporter } = require('electron')
 
 crashReporter.start({
   productName: 'YourName',
@@ -27,6 +27,7 @@ following projects:
 Or use a 3rd party hosted solution:
 
 * [Backtrace I/O](https://backtrace.io/electron/)
+* [Sentry](https://docs.sentry.io/clients/electron)
 
 Crash reports are saved locally in an application-specific temp directory folder.
 For a `productName` of `YourName`, crash reports will be stored in a folder
@@ -41,7 +42,7 @@ The `crashReporter` module has the following methods:
 ### `crashReporter.start(options)`
 
 * `options` Object
-  * `companyName` String (optional)
+  * `companyName` String
   * `submitURL` String - URL that crash reports will be sent to as POST.
   * `productName` String (optional) - Defaults to `app.getName()`.
   * `uploadToServer` Boolean (optional) - Whether crash reports should be sent to the server
@@ -70,18 +71,18 @@ first call `start` you can call `addExtraParameter` on macOS or call `start`
 again with the new/updated `extra` parameters on Linux and Windows.
 
 ```js
- const args = [
-   `--reporter-url=${submitURL}`,
-   `--application-name=${productName}`,
-   `--crashes-directory=${crashesDirectory}`
- ]
- const env = {
-   ELECTRON_INTERNAL_CRASH_SERVICE: 1
- }
- spawn(process.execPath, args, {
-   env: env,
-   detached: true
- })
+const args = [
+  `--reporter-url=${submitURL}`,
+  `--application-name=${productName}`,
+  `--crashes-directory=${crashesDirectory}`
+]
+const env = {
+  ELECTRON_INTERNAL_CRASH_SERVICE: 1
+}
+spawn(process.execPath, args, {
+  env: env,
+  detached: true
+})
 ```
 
 **Note:** On macOS, Electron uses a new `crashpad` client for crash collection and reporting.

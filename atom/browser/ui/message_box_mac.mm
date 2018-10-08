@@ -11,6 +11,7 @@
 #include "base/mac/mac_util.h"
 #include "base/strings/sys_string_conversions.h"
 #include "skia/ext/skia_utils_mac.h"
+#include "ui/gfx/image/image_skia.h"
 
 @interface ModalDelegate : NSObject {
  @private
@@ -96,17 +97,17 @@ NSAlert* CreateNSAlert(NativeWindow* parent_window,
   NSArray* ns_buttons = [alert buttons];
   int button_count = static_cast<int>([ns_buttons count]);
 
-  // Bind cancel id button to escape key if there is more than one button
-  if (button_count > 1 && cancel_id >= 0 && cancel_id < button_count) {
-    [[ns_buttons objectAtIndex:cancel_id] setKeyEquivalent:@"\e"];
-  }
-
   if (default_id >= 0 && default_id < button_count) {
     // Focus the button at default_id if the user opted to do so.
     // The first button added gets set as the default selected.
     // So remove that default, and make the requested button the default.
     [[ns_buttons objectAtIndex:0] setKeyEquivalent:@""];
     [[ns_buttons objectAtIndex:default_id] setKeyEquivalent:@"\r"];
+  }
+
+  // Bind cancel id button to escape key if there is more than one button
+  if (button_count > 1 && cancel_id >= 0 && cancel_id < button_count) {
+    [[ns_buttons objectAtIndex:cancel_id] setKeyEquivalent:@"\e"];
   }
 
   if (!checkbox_label.empty()) {
@@ -140,14 +141,13 @@ int ShowMessageBox(NativeWindow* parent_window,
                    const std::string& message,
                    const std::string& detail,
                    const gfx::ImageSkia& icon) {
-  NSAlert* alert = CreateNSAlert(parent_window, type, buttons, default_id,
-                                 cancel_id, title, message, detail, "", false,
-                                 icon);
+  NSAlert* alert =
+      CreateNSAlert(parent_window, type, buttons, default_id, cancel_id, title,
+                    message, detail, "", false, icon);
 
   // Use runModal for synchronous alert without parent, since we don't have a
   // window to wait for.
-  if (!parent_window || !parent_window->GetNativeWindow() ||
-      parent_window->is_offscreen_dummy())
+  if (!parent_window)
     return [[alert autorelease] runModal];
 
   int ret_code = -1;
@@ -185,8 +185,7 @@ void ShowMessageBox(NativeWindow* parent_window,
 
   // Use runModal for synchronous alert without parent, since we don't have a
   // window to wait for.
-  if (!parent_window || !parent_window->GetNativeWindow() ||
-      parent_window->is_offscreen_dummy()) {
+  if (!parent_window) {
     int ret = [[alert autorelease] runModal];
     callback.Run(ret, alert.suppressionButton.state == NSOnState);
   } else {
@@ -195,10 +194,11 @@ void ShowMessageBox(NativeWindow* parent_window,
                                                          callEndModal:false];
 
     NSWindow* window = parent_window ? parent_window->GetNativeWindow() : nil;
-    [alert beginSheetModalForWindow:window
-                modalDelegate:delegate
+    [alert
+        beginSheetModalForWindow:window
+                   modalDelegate:delegate
                   didEndSelector:@selector(alertDidEnd:returnCode:contextInfo:)
-                    contextInfo:nil];
+                     contextInfo:nil];
   }
 }
 

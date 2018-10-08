@@ -11,7 +11,7 @@ For example:
 
 ```javascript
 const electron = require('electron')
-const {app} = electron
+const { app } = electron
 
 app.on('ready', () => {
   electron.powerMonitor.on('suspend', () => {
@@ -46,6 +46,14 @@ Emitted when the system is about to reboot or shut down. If the event handler
 invokes `e.preventDefault()`, Electron will attempt to delay system shutdown in
 order for the app to exit cleanly. If `e.preventDefault()` is called, the app
 should exit as soon as possible by calling something like `app.quit()`.
+
+### Event: 'lock-screen' _macOS_ _Windows_
+
+Emitted when the system is about to lock the screen.
+
+### Event: 'unlock-screen' _macOS_ _Windows_
+
+Emitted as soon as the systems screen is unlocked.
 
 ## Methods
 

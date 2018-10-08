@@ -3,7 +3,7 @@
 Electron has APIs to configure the app's icon in the Windows taskbar. Supported
 are the [creation of a `JumpList`](#jumplist),
 [custom thumbnails and toolbars](#thumbnail-toolbars),
-[icon overlays](#icon-overlays-in-taskbar-windows), and the so-called
+[icon overlays](#icon-overlays-in-taskbar), and the so-called
 ["Flash Frame" effect](#flash-frame), but
 Electron also uses the app's dock icon to implement cross-platform features
 like [recent documents][recent-documents] and
@@ -58,7 +58,7 @@ app.setUserTasks([
 ])
 ```
 
-To clean your tasks list, just call `app.setUserTasks` with an empty array:
+To clean your tasks list, call `app.setUserTasks` with an empty array:
 
 ```javascript
 const { app } = require('electron')
@@ -78,7 +78,7 @@ particular window's command without restoring or activating the window.
 
 From MSDN, it's illustrated:
 
-> This toolbar is simply the familiar standard toolbar common control. It has a
+> This toolbar is the familiar standard toolbar common control. It has a
 > maximum of seven buttons. Each button's ID, image, tooltip, and state are defined
 > in a structure, which is then passed to the taskbar. The application can show,
 > enable, disable, or hide buttons from the thumbnail toolbar as required by its
@@ -148,7 +148,7 @@ To set the overlay icon for a window, you can use the
 [BrowserWindow.setOverlayIcon][setoverlayicon] API:
 
 ```javascript
-const {BrowserWindow} = require('electron')
+const { BrowserWindow } = require('electron')
 let win = new BrowserWindow()
 win.setOverlayIcon('path/to/overlay.png', 'Description for overlay')
 ```
@@ -167,7 +167,7 @@ To flash the BrowserWindow taskbar button, you can use the
 [BrowserWindow.flashFrame][flashframe] API:
 
 ```javascript
-const {BrowserWindow} = require('electron')
+const { BrowserWindow } = require('electron')
 let win = new BrowserWindow()
 win.once('focus', () => win.flashFrame(false))
 win.flashFrame(true)

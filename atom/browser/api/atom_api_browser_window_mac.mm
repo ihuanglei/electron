@@ -7,8 +7,10 @@
 #import <Cocoa/Cocoa.h>
 
 #include "atom/browser/native_browser_view.h"
+#include "atom/browser/native_window_mac.h"
 #include "atom/common/draggable_region.h"
 #include "base/mac/scoped_nsobject.h"
+#include "brightray/browser/inspectable_web_contents_view.h"
 
 @interface NSView (WebContentsView)
 - (void)setMouseDownCanMoveWindow:(BOOL)can_move;
@@ -38,18 +40,32 @@ namespace {
 // Return a vector of non-draggable regions that fill a window of size
 // |width| by |height|, but leave gaps where the window should be draggable.
 std::vector<gfx::Rect> CalculateNonDraggableRegions(
-    std::unique_ptr<SkRegion> draggable, int width, int height) {
+    std::unique_ptr<SkRegion> draggable,
+    int width,
+    int height) {
   std::vector<gfx::Rect> result;
-  std::unique_ptr<SkRegion> non_draggable(new SkRegion);
-  non_draggable->op(0, 0, width, height, SkRegion::kUnion_Op);
-  non_draggable->op(*draggable, SkRegion::kDifference_Op);
-  for (SkRegion::Iterator it(*non_draggable); !it.done(); it.next()) {
+  SkRegion non_draggable;
+  non_draggable.op(0, 0, width, height, SkRegion::kUnion_Op);
+  non_draggable.op(*draggable, SkRegion::kDifference_Op);
+  for (SkRegion::Iterator it(non_draggable); !it.done(); it.next()) {
     result.push_back(gfx::SkIRectToRect(it.rect()));
   }
   return result;
 }
 
 }  // namespace
+
+void BrowserWindow::OverrideNSWindowContentView(
+    brightray::InspectableWebContents* iwc) {
+  // Make NativeWindow use a NSView as content view.
+  static_cast<NativeWindowMac*>(window())->OverrideNSWindowContentView();
+  // Add webview to contentView.
+  NSView* webView = iwc->GetView()->GetNativeView();
+  NSView* contentView = [window()->GetNativeWindow() contentView];
+  [webView setFrame:[contentView bounds]];
+  [contentView addSubview:webView];
+  [contentView viewDidMoveToWindow];
+}
 
 void BrowserWindow::UpdateDraggableRegions(
     content::RenderFrameHost* rfh,

@@ -1,19 +1,19 @@
 # Developing Electron
 
-These guides are intended for people working on the Electron project itself. 
-For guides on Electron app development, see 
+These guides are intended for people working on the Electron project itself.
+For guides on Electron app development, see
 [/docs/README.md](../README.md#guides-and-tutorials).
 
 * [Code of Conduct](../../CODE_OF_CONDUCT.md)
 * [Contributing to Electron](../../CONTRIBUTING.md)
 * [Issues](issues.md)
 * [Pull Requests](pull-requests.md)
-* [Documentation Styleguide](styleguide.md)
+* [Documentation Styleguide](coding-style.md#documentation)
 * [Source Code Directory Structure](source-code-directory-structure.md)
 * [Coding Style](coding-style.md)
 * [Using clang-format on C++ Code](clang-format.md)
 * [Build System Overview](build-system-overview.md)
-* [Build Instructions (macOS)](build-instructions-osx.md)
+* [Build Instructions (macOS)](build-instructions-macos.md)
 * [Build Instructions (Windows)](build-instructions-windows.md)
 * [Build Instructions (Linux)](build-instructions-linux.md)
 * [Chromium Development](chromium-development.md)

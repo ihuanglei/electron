@@ -61,17 +61,21 @@ extern const char kNodeIntegration[];
 extern const char kContextIsolation[];
 extern const char kGuestInstanceID[];
 extern const char kExperimentalFeatures[];
-extern const char kExperimentalCanvasFeatures[];
 extern const char kOpenerID[];
 extern const char kScrollBounce[];
-extern const char kBlinkFeatures[];
+extern const char kEnableBlinkFeatures[];
 extern const char kDisableBlinkFeatures[];
 extern const char kNodeIntegrationInWorker[];
 extern const char kWebviewTag[];
+extern const char kNativeWindowOpen[];
 extern const char kCustomArgs[];
+extern const char kPlugins[];
+extern const char kSandbox[];
+extern const char kWebSecurity[];
+extern const char kAllowRunningInsecureContent[];
+extern const char kOffscreen[];
 
-}   // namespace options
-
+}  // namespace options
 
 // Following are actually command line switches, should be moved to other files.
 
@@ -88,11 +92,9 @@ extern const char kRegisterServiceWorkerSchemes[];
 extern const char kSecureSchemes[];
 extern const char kAppUserModelId[];
 extern const char kAppPath[];
-extern const char kContextId[];
 
 extern const char kBackgroundColor[];
 extern const char kPreloadScript[];
-extern const char kPreloadURL[];
 extern const char kPreloadScripts[];
 extern const char kNodeIntegration[];
 extern const char kContextIsolation[];
@@ -106,6 +108,11 @@ extern const char kWebviewTag[];
 
 extern const char kWidevineCdmPath[];
 extern const char kWidevineCdmVersion[];
+
+extern const char kDiskCacheSize[];
+extern const char kIgnoreConnectionsLimit[];
+extern const char kAuthServerWhitelist[];
+extern const char kAuthNegotiateDelegateWhitelist[];
 
 }  // namespace switches
 

@@ -1,13 +1,15 @@
 #!/usr/bin/env python
 
 import argparse
+import atexit
 import os
 import shutil
 import subprocess
 import sys
 
 from lib.config import enable_verbose_mode
-from lib.util import electron_gyp, execute_stdout, rm_rf
+from lib.util import get_electron_branding, execute_stdout, rm_rf
+import lib.dbus_mock
 
 
 if sys.platform == 'linux2':
@@ -17,7 +19,8 @@ if sys.platform == 'linux2':
     # while also setting DBUS_SYSTEM_BUS_ADDRESS environment variable, which
     # will be picked up by electron.
     try:
-        import lib.dbus_mock
+        lib.dbus_mock.start()
+        atexit.register(lib.dbus_mock.stop)
     except ImportError:
         # If not available, the powerMonitor tests will be skipped since
         # DBUS_SYSTEM_BUS_ADDRESS will not be set
@@ -26,8 +29,8 @@ if sys.platform == 'linux2':
 
 SOURCE_ROOT = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 
-PROJECT_NAME = electron_gyp()['project_name%']
-PRODUCT_NAME = electron_gyp()['product_name%']
+PROJECT_NAME = get_electron_branding()['project_name']
+PRODUCT_NAME = get_electron_branding()['product_name']
 
 
 def main():
@@ -55,6 +58,8 @@ def main():
     electron = os.path.join(SOURCE_ROOT, 'out', config,
                               '{0}.exe'.format(PROJECT_NAME))
     resources_path = os.path.join(SOURCE_ROOT, 'out', config)
+    if config != 'R':
+      os.environ['ELECTRON_SKIP_NATIVE_MODULE_TESTS'] = '1'
   else:
     electron = os.path.join(SOURCE_ROOT, 'out', config, PROJECT_NAME)
     resources_path = os.path.join(SOURCE_ROOT, 'out', config)

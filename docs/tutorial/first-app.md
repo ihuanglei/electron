@@ -44,7 +44,7 @@ run the main process. An example of your `package.json` might look like this:
 ```
 
 __Note__: If the `main` field is not present in `package.json`, Electron will
-attempt to load an `index.js` (just like Node.js itself). If this was actually
+attempt to load an `index.js` (as Node.js does). If this was actually
 a simple Node application, you would add a `start` script that instructs `node`
 to execute the current package:
 
@@ -90,7 +90,7 @@ and custom caches.
 
 ## Electron Development in a Nutshell
 
-Electron apps are developed in JavaScript using the same principals and methods
+Electron apps are developed in JavaScript using the same principles and methods
 found in Node.js development. All APIs and features found in Electron are
 accessible through the `electron` module, which can be required like any other
 Node.js module:
@@ -101,24 +101,18 @@ const electron = require('electron')
 
 The `electron` module exposes features in namespaces. As examples, the lifecycle
 of the application is managed through `electron.app`, windows can be created
-using the `electron.BrowserWindow` class. A simple `main.js` file might just wait
+using the `electron.BrowserWindow` class. A simple `main.js` file might wait
 for the application to be ready and open a window:
 
 ```javascript
-const {app, BrowserWindow} = require('electron')
-const path = require('path')
-const url = require('url')
+const { app, BrowserWindow } = require('electron')
 
 function createWindow () {
   // Create the browser window.
-  win = new BrowserWindow({width: 800, height: 600})
+  win = new BrowserWindow({ width: 800, height: 600 })
 
   // and load the index.html of the app.
-  win.loadURL(url.format({
-    pathname: path.join(__dirname, 'index.html'),
-    protocol: 'file:',
-    slashes: true
-  }))
+  win.loadFile('index.html')
 }
 
 app.on('ready', createWindow)
@@ -130,9 +124,7 @@ might open developer tools, handle the window being closed, or re-create
 windows on macOS if the user clicks on the app's icon in the dock.
 
 ```javascript
-const {app, BrowserWindow} = require('electron')
-const path = require('path')
-const url = require('url')
+const { app, BrowserWindow } = require('electron')
 
 // Keep a global reference of the window object, if you don't, the window will
 // be closed automatically when the JavaScript object is garbage collected.
@@ -140,14 +132,10 @@ let win
 
 function createWindow () {
   // Create the browser window.
-  win = new BrowserWindow({width: 800, height: 600})
+  win = new BrowserWindow({ width: 800, height: 600 })
 
   // and load the index.html of the app.
-  win.loadURL(url.format({
-    pathname: path.join(__dirname, 'index.html'),
-    protocol: 'file:',
-    slashes: true
-  }))
+  win.loadFile('index.html')
 
   // Open the DevTools.
   win.webContents.openDevTools()
@@ -216,7 +204,7 @@ directory.
 Clone and run the code in this tutorial by using the
 [`electron/electron-quick-start`][quick-start] repository.
 
-**Note**: Running this requires [Git](https://git-scm.com).
+**Note**: Running this requires [Git](https://git-scm.com) and [npm](https://www.npmjs.com/).
 
 ```sh
 # Clone the repository

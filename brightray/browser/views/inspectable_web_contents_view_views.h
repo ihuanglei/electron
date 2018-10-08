@@ -1,16 +1,18 @@
 #ifndef BRIGHTRAY_BROWSER_VIEWS_INSPECTABLE_WEB_CONTENTS_VIEW_VIEWS_H_
 #define BRIGHTRAY_BROWSER_VIEWS_INSPECTABLE_WEB_CONTENTS_VIEW_VIEWS_H_
 
+#include <memory>
+
 #include "base/compiler_specific.h"
-#include "brightray/browser/devtools_contents_resizing_strategy.h"
 #include "brightray/browser/inspectable_web_contents_view.h"
+#include "chrome/browser/devtools/devtools_contents_resizing_strategy.h"
 #include "ui/views/view.h"
 
 namespace views {
 class WebView;
 class Widget;
 class WidgetDelegate;
-}
+}  // namespace views
 
 namespace brightray {
 
@@ -21,7 +23,7 @@ class InspectableWebContentsViewViews : public InspectableWebContentsView,
  public:
   explicit InspectableWebContentsViewViews(
       InspectableWebContentsImpl* inspectable_web_contents_impl);
-  ~InspectableWebContentsViewViews();
+  ~InspectableWebContentsViewViews() override;
 
   // InspectableWebContentsView:
   views::View* GetView() override;

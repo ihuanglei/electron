@@ -5,6 +5,7 @@
 #include "atom/browser/relauncher.h"
 
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "atom/common/atom_command_line.h"
@@ -41,7 +42,7 @@ bool RelaunchApp(const StringVector& argv) {
   // helper process, because there's no guarantee that the updated version's
   // relauncher implementation will be compatible with the running version's.
   base::FilePath child_path;
-  if (!PathService::Get(content::CHILD_PROCESS_EXE, &child_path)) {
+  if (!base::PathService::Get(content::CHILD_PROCESS_EXE, &child_path)) {
     LOG(ERROR) << "No CHILD_PROCESS_EXE";
     return false;
   }
@@ -57,8 +58,8 @@ bool RelaunchAppWithHelper(const base::FilePath& helper,
   relaunch_argv.push_back(helper.value());
   relaunch_argv.push_back(internal::kRelauncherTypeArg);
 
-  relaunch_argv.insert(relaunch_argv.end(),
-                       relauncher_args.begin(), relauncher_args.end());
+  relaunch_argv.insert(relaunch_argv.end(), relauncher_args.begin(),
+                       relauncher_args.end());
 
   relaunch_argv.push_back(internal::kRelauncherArgSeparator);
 
@@ -84,8 +85,8 @@ bool RelaunchAppWithHelper(const base::FilePath& helper,
   // preserve these three FDs in forked processes, so kRelauncherSyncFD should
   // not conflict with them.
   static_assert(internal::kRelauncherSyncFD != STDIN_FILENO &&
-                internal::kRelauncherSyncFD != STDOUT_FILENO &&
-                internal::kRelauncherSyncFD != STDERR_FILENO,
+                    internal::kRelauncherSyncFD != STDOUT_FILENO &&
+                    internal::kRelauncherSyncFD != STDERR_FILENO,
                 "kRelauncherSyncFD must not conflict with stdio fds");
 #endif
 

@@ -2,9 +2,10 @@
 // Use of this source code is governed by the MIT license that can be
 // found in the LICENSE file.
 
-#ifdef ENABLE_RUN_AS_NODE
-
 #include "atom/app/node_main.h"
+
+#include <memory>
+#include <utility>
 
 #include "atom/app/uv_task_runner.h"
 #include "atom/browser/javascript_environment.h"
@@ -26,7 +27,7 @@
 
 namespace atom {
 
-int NodeMain(int argc, char *argv[]) {
+int NodeMain(int argc, char* argv[]) {
   base::CommandLine::Init(argc, argv);
 
   int exit_code = 1;
@@ -38,11 +39,12 @@ int NodeMain(int argc, char *argv[]) {
     base::ThreadTaskRunnerHandle handle(uv_task_runner);
 
     // Initialize feature list.
-    std::unique_ptr<base::FeatureList> feature_list(new base::FeatureList);
+    auto feature_list = std::make_unique<base::FeatureList>();
     feature_list->InitializeFromCommandLine("", "");
     base::FeatureList::SetInstance(std::move(feature_list));
 
-    gin::V8Initializer::LoadV8Snapshot();
+    gin::V8Initializer::LoadV8Snapshot(
+        gin::V8Initializer::V8SnapshotFileType::kWithAdditionalContext);
     gin::V8Initializer::LoadV8Natives();
 
     // V8 requires a task scheduler apparently
@@ -64,7 +66,7 @@ int NodeMain(int argc, char *argv[]) {
 
     // Enable support for v8 inspector.
     NodeDebugger node_debugger(env);
-    node_debugger.Start(gin_env.platform());
+    node_debugger.Start();
 
     mate::Dictionary process(gin_env.isolate(), env->process_object());
 #if defined(OS_WIN)
@@ -82,7 +84,7 @@ int NodeMain(int argc, char *argv[]) {
     bool more;
     do {
       more = uv_run(env->event_loop(), UV_RUN_ONCE);
-      gin_env.platform()->DrainBackgroundTasks(env->isolate());
+      gin_env.platform()->DrainTasks(env->isolate());
       if (more == false) {
         node::EmitBeforeExit(env);
 
@@ -96,7 +98,7 @@ int NodeMain(int argc, char *argv[]) {
 
     exit_code = node::EmitExit(env);
     node::RunAtExit(env);
-    gin_env.platform()->DrainBackgroundTasks(env->isolate());
+    gin_env.platform()->DrainTasks(env->isolate());
     gin_env.platform()->CancelPendingDelayedTasks(env->isolate());
 
     node::FreeEnvironment(env);
@@ -115,5 +117,3 @@ int NodeMain(int argc, char *argv[]) {
 }
 
 }  // namespace atom
-
-#endif  // ENABLE_RUN_AS_NODE

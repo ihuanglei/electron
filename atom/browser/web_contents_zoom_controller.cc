@@ -21,12 +21,7 @@ namespace atom {
 
 WebContentsZoomController::WebContentsZoomController(
     content::WebContents* web_contents)
-    : content::WebContentsObserver(web_contents),
-      zoom_mode_(ZOOM_MODE_DEFAULT),
-      zoom_level_(1.0),
-      old_process_id_(-1),
-      old_view_id_(-1),
-      embedder_zoom_controller_(nullptr) {
+    : content::WebContentsObserver(web_contents) {
   default_zoom_factor_ = content::kEpsilon;
   host_zoom_map_ = content::HostZoomMap::GetForWebContents(web_contents);
 }
@@ -71,8 +66,7 @@ void WebContentsZoomController::SetZoomLevel(double level) {
       content::HostZoomMap::GetForWebContents(web_contents());
   if (zoom_mode_ == ZOOM_MODE_ISOLATED ||
       zoom_map->UsesTemporaryZoomLevel(render_process_id, render_view_id)) {
-    zoom_map->SetTemporaryZoomLevel(
-      render_process_id, render_view_id, level);
+    zoom_map->SetTemporaryZoomLevel(render_process_id, render_view_id, level);
     // Notify observers of zoom level changes.
     for (Observer& observer : observers_)
       observer.OnZoomLevelChanged(web_contents(), level, true);
@@ -115,7 +109,6 @@ bool WebContentsZoomController::UsesTemporaryZoomLevel() {
   return host_zoom_map_->UsesTemporaryZoomLevel(render_process_id,
                                                 render_view_id);
 }
-
 
 void WebContentsZoomController::SetZoomMode(ZoomMode new_mode) {
   if (new_mode == zoom_mode_)
@@ -169,7 +162,7 @@ void WebContentsZoomController::SetZoomMode(ZoomMode new_mode) {
         // manually.
         for (Observer& observer : observers_)
           observer.OnZoomLevelChanged(web_contents(), original_zoom_level,
-            false);
+                                      false);
       }
       break;
     }
@@ -178,29 +171,28 @@ void WebContentsZoomController::SetZoomMode(ZoomMode new_mode) {
       // page needs to be resized to the default zoom. While in manual mode,
       // the zoom level is handled independently.
       if (zoom_mode_ != ZOOM_MODE_DISABLED) {
-        zoom_map->SetTemporaryZoomLevel(
-          render_process_id, render_view_id, GetDefaultZoomLevel());
+        zoom_map->SetTemporaryZoomLevel(render_process_id, render_view_id,
+                                        GetDefaultZoomLevel());
         zoom_level_ = original_zoom_level;
       } else {
         // When we don't call any HostZoomMap set functions, we send the event
         // manually.
         for (Observer& observer : observers_)
           observer.OnZoomLevelChanged(web_contents(), original_zoom_level,
-            false);
+                                      false);
       }
       break;
     }
     case ZOOM_MODE_DISABLED: {
       // The page needs to be zoomed back to default before disabling the zoom
-      zoom_map->SetTemporaryZoomLevel(
-        render_process_id, render_view_id, GetDefaultZoomLevel());
+      zoom_map->SetTemporaryZoomLevel(render_process_id, render_view_id,
+                                      GetDefaultZoomLevel());
       break;
     }
   }
 
   zoom_mode_ = new_mode;
 }
-
 
 void WebContentsZoomController::ResetZoomModeOnNavigationIfNeeded(
     const GURL& url) {
@@ -216,8 +208,7 @@ void WebContentsZoomController::ResetZoomModeOnNavigationIfNeeded(
   double new_zoom_level = zoom_map->GetZoomLevelForHostAndScheme(
       url.scheme(), net::GetHostOrSpecFromURL(url));
   for (Observer& observer : observers_)
-    observer.OnZoomLevelChanged(web_contents(), new_zoom_level,
-      false);
+    observer.OnZoomLevelChanged(web_contents(), new_zoom_level, false);
   zoom_map->ClearTemporaryZoomLevel(render_process_id, render_view_id);
   zoom_mode_ = ZOOM_MODE_DEFAULT;
 }
@@ -237,6 +228,9 @@ void WebContentsZoomController::DidFinishNavigation(
 }
 
 void WebContentsZoomController::WebContentsDestroyed() {
+  for (Observer& observer : observers_)
+    observer.OnZoomControllerWebContentsDestroyed();
+
   observers_.Clear();
   embedder_zoom_controller_ = nullptr;
 }

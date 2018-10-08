@@ -1,12 +1,17 @@
 'use strict'
 
-const assert = require('assert')
+const chai = require('chai')
+const dirtyChai = require('dirty-chai')
 const http = require('http')
 const path = require('path')
-const {closeWindow} = require('./window-helpers')
+const { closeWindow } = require('./window-helpers')
+const { emittedOnce } = require('./events-helpers')
 
-const {ipcRenderer, remote} = require('electron')
-const {ipcMain, webContents, BrowserWindow} = remote
+const { expect } = chai
+chai.use(dirtyChai)
+
+const { ipcRenderer, remote } = require('electron')
+const { ipcMain, webContents, BrowserWindow } = remote
 
 describe('ipc renderer module', () => {
   const fixtures = path.join(__dirname, 'fixtures')
@@ -16,97 +21,97 @@ describe('ipc renderer module', () => {
   afterEach(() => closeWindow(w).then(() => { w = null }))
 
   describe('ipc.sender.send', () => {
-    it('should work when sending an object containing id property', (done) => {
+    it('should work when sending an object containing id property', done => {
       const obj = {
         id: 1,
         name: 'ly'
       }
-      ipcRenderer.once('message', function (event, message) {
-        assert.deepEqual(message, obj)
+      ipcRenderer.once('message', (event, message) => {
+        expect(message).to.deep.equal(obj)
         done()
       })
       ipcRenderer.send('message', obj)
     })
 
-    it('can send instances of Date', (done) => {
+    it('can send instances of Date', done => {
       const currentDate = new Date()
-      ipcRenderer.once('message', function (event, value) {
-        assert.equal(value, currentDate.toISOString())
+      ipcRenderer.once('message', (event, value) => {
+        expect(value).to.equal(currentDate.toISOString())
         done()
       })
       ipcRenderer.send('message', currentDate)
     })
 
-    it('can send instances of Buffer', (done) => {
+    it('can send instances of Buffer', done => {
       const buffer = Buffer.from('hello')
-      ipcRenderer.once('message', function (event, message) {
-        assert.ok(buffer.equals(message))
+      ipcRenderer.once('message', (event, message) => {
+        expect(buffer.equals(message)).to.be.true()
         done()
       })
       ipcRenderer.send('message', buffer)
     })
 
-    it('can send objects with DOM class prototypes', (done) => {
-      ipcRenderer.once('message', function (event, value) {
-        assert.equal(value.protocol, 'file:')
-        assert.equal(value.hostname, '')
+    it('can send objects with DOM class prototypes', done => {
+      ipcRenderer.once('message', (event, value) => {
+        expect(value.protocol).to.equal('file:')
+        expect(value.hostname).to.equal('')
         done()
       })
       ipcRenderer.send('message', document.location)
     })
 
-    it('can send Electron API objects', (done) => {
+    it('can send Electron API objects', done => {
       const webContents = remote.getCurrentWebContents()
-      ipcRenderer.once('message', function (event, value) {
-        assert.deepEqual(value.browserWindowOptions, webContents.browserWindowOptions)
+      ipcRenderer.once('message', (event, value) => {
+        expect(value.browserWindowOptions).to.deep.equal(webContents.browserWindowOptions)
         done()
       })
       ipcRenderer.send('message', webContents)
     })
 
-    it('does not crash on external objects (regression)', (done) => {
-      const request = http.request({port: 5000, hostname: '127.0.0.1', method: 'GET', path: '/'})
+    it('does not crash on external objects (regression)', done => {
+      const request = http.request({ port: 5000, hostname: '127.0.0.1', method: 'GET', path: '/' })
       const stream = request.agent.sockets['127.0.0.1:5000:'][0]._handle._externalStream
       request.on('error', () => {})
-      ipcRenderer.once('message', function (event, requestValue, externalStreamValue) {
-        assert.equal(requestValue.method, 'GET')
-        assert.equal(requestValue.path, '/')
-        assert.equal(externalStreamValue, null)
+      ipcRenderer.once('message', (event, requestValue, externalStreamValue) => {
+        expect(requestValue.method).to.equal('GET')
+        expect(requestValue.path).to.equal('/')
+        expect(externalStreamValue).to.be.null()
         done()
       })
 
       ipcRenderer.send('message', request, stream)
     })
 
-    it('can send objects that both reference the same object', (done) => {
-      const child = {hello: 'world'}
-      const foo = {name: 'foo', child: child}
-      const bar = {name: 'bar', child: child}
+    it('can send objects that both reference the same object', done => {
+      const child = { hello: 'world' }
+      const foo = { name: 'foo', child: child }
+      const bar = { name: 'bar', child: child }
       const array = [foo, bar]
 
-      ipcRenderer.once('message', function (event, arrayValue, fooValue, barValue, childValue) {
-        assert.deepEqual(arrayValue, array)
-        assert.deepEqual(fooValue, foo)
-        assert.deepEqual(barValue, bar)
-        assert.deepEqual(childValue, child)
+      ipcRenderer.once('message', (event, arrayValue, fooValue, barValue, childValue) => {
+        expect(arrayValue).to.deep.equal(array)
+        expect(fooValue).to.deep.equal(foo)
+        expect(barValue).to.deep.equal(bar)
+        expect(childValue).to.deep.equal(child)
         done()
       })
       ipcRenderer.send('message', array, foo, bar, child)
     })
 
-    it('inserts null for cyclic references', (done) => {
+    it('inserts null for cyclic references', done => {
       const array = [5]
       array.push(array)
 
-      const child = {hello: 'world'}
+      const child = { hello: 'world' }
       child.child = child
 
-      ipcRenderer.once('message', function (event, arrayValue, childValue) {
-        assert.equal(arrayValue[0], 5)
-        assert.equal(arrayValue[1], null)
+      ipcRenderer.once('message', (event, arrayValue, childValue) => {
+        expect(arrayValue[0]).to.equal(5)
+        expect(arrayValue[1]).to.be.null()
 
-        assert.equal(childValue.hello, 'world')
-        assert.equal(childValue.child, null)
+        expect(childValue.hello).to.equal('world')
+        expect(childValue.child).to.be.null()
 
         done()
       })
@@ -121,14 +126,12 @@ describe('ipc renderer module', () => {
 
     it('can be replied by setting event.returnValue', () => {
       const msg = ipcRenderer.sendSync('echo', 'test')
-      assert.equal(msg, 'test')
+      expect(msg).to.equal('test')
     })
   })
 
   describe('ipcRenderer.sendTo', () => {
     let contents = null
-
-    beforeEach(() => { contents = webContents.create({}) })
 
     afterEach(() => {
       ipcRenderer.removeAllListeners('pong')
@@ -136,19 +139,62 @@ describe('ipc renderer module', () => {
       contents = null
     })
 
-    it('sends message to WebContents', (done) => {
-      const webContentsId = remote.getCurrentWebContents().id
+    it('sends message to WebContents', done => {
+      contents = webContents.create({
+        preload: path.join(fixtures, 'module', 'preload-inject-ipc.js')
+      })
 
-      ipcRenderer.once('pong', function (event, id) {
-        assert.equal(webContentsId, id)
+      const payload = 'Hello World!'
+
+      ipcRenderer.once('pong', (event, data) => {
+        expect(payload).to.equal(data)
         done()
       })
 
       contents.once('did-finish-load', () => {
-        ipcRenderer.sendTo(contents.id, 'ping', webContentsId)
+        ipcRenderer.sendTo(contents.id, 'ping', payload)
       })
 
-      contents.loadURL(`file://${path.join(fixtures, 'pages', 'ping-pong.html')}`)
+      contents.loadFile(path.join(fixtures, 'pages', 'ping-pong.html'))
+    })
+
+    it('sends message to WebContents (sanboxed renderer)', done => {
+      contents = webContents.create({
+        preload: path.join(fixtures, 'module', 'preload-inject-ipc.js'),
+        sandbox: true
+      })
+
+      const payload = 'Hello World!'
+
+      ipcRenderer.once('pong', (event, data) => {
+        expect(payload).to.equal(data)
+        done()
+      })
+
+      contents.once('did-finish-load', () => {
+        ipcRenderer.sendTo(contents.id, 'ping', payload)
+      })
+
+      contents.loadFile(path.join(fixtures, 'pages', 'ping-pong.html'))
+    })
+
+    it('sends message to WebContents (channel has special chars)', done => {
+      contents = webContents.create({
+        preload: path.join(fixtures, 'module', 'preload-inject-ipc.js')
+      })
+
+      const payload = 'Hello World!'
+
+      ipcRenderer.once('pong-æøåü', (event, data) => {
+        expect(payload).to.equal(data)
+        done()
+      })
+
+      contents.once('did-finish-load', () => {
+        ipcRenderer.sendTo(contents.id, 'ping-æøåü', payload)
+      })
+
+      contents.loadFile(path.join(fixtures, 'pages', 'ping-pong.html'))
     })
   })
 
@@ -163,29 +209,33 @@ describe('ipc renderer module', () => {
             'Function provided here: remote-event-handler.html:11:33',
             'Remote event names: remote-handler, other-remote-handler'
           ].join('\n')
+
           const results = ipcRenderer.sendSync('try-emit-web-contents-event', w.webContents.id, 'remote-handler')
-          assert.deepEqual(results, {
+
+          expect(results).to.deep.equal({
             warningMessage: expectedMessage,
             listenerCountBefore: 2,
             listenerCountAfter: 1
           })
           done()
         })
+
         w.webContents.reload()
       })
-      w.loadURL(`file://${path.join(fixtures, 'api', 'remote-event-handler.html')}`)
+      w.loadFile(path.join(fixtures, 'api', 'remote-event-handler.html'))
     })
   })
 
-  it('throws an error when removing all the listeners', () => {
-    ipcRenderer.on('test-event', () => {})
-    assert.equal(ipcRenderer.listenerCount('test-event'), 1)
+  describe('ipcRenderer.on', () => {
+    it('is not used for internals', async () => {
+      w = new BrowserWindow({ show: false })
+      w.loadURL('about:blank')
 
-    assert.throws(() => {
-      ipcRenderer.removeAllListeners()
-    }, /Removing all listeners from ipcRenderer will make Electron internals stop working/)
+      await emittedOnce(w.webContents, 'did-finish-load')
 
-    ipcRenderer.removeAllListeners('test-event')
-    assert.equal(ipcRenderer.listenerCount('test-event'), 0)
+      const script = `require('electron').ipcRenderer.eventNames()`
+      const result = await w.webContents.executeJavaScript(script)
+      expect(result).to.deep.equal([])
+    })
   })
 })
