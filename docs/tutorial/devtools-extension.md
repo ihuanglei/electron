@@ -29,14 +29,29 @@ Using the [React Developer Tools][react-devtools] as example:
    * on macOS it is `~/Library/Application Support/Google/Chrome/Default/Extensions`.
 1. Pass the location of the extension to `BrowserWindow.addDevToolsExtension`
    API, for the React Developer Tools, it is something like:
-   `~/Library/Application Support/Google/Chrome/Default/Extensions/fmkadmapgofadopljbjfkapdkoienihi/0.15.0_0`
+
+   ```javascript
+   const path = require('path')
+   const os = require('os')
+
+   BrowserWindow.addDevToolsExtension(
+      path.join(os.homedir(), '/Library/Application Support/Google/Chrome/Default/Extensions/fmkadmapgofadopljbjfkapdkoienihi/4.3.0_0')
+   )
+   ```
 
 **Note:** The `BrowserWindow.addDevToolsExtension` API cannot be called before the
 ready event of the app module is emitted.
 
-The name of the extension is returned by `BrowserWindow.addDevToolsExtension`,
-and you can pass the name of the extension to the `BrowserWindow.removeDevToolsExtension`
-API to unload it.
+The extension will be remembered so you only need to call this API once per
+extension. If you try to add an extension that has already been loaded, this method
+will not return and instead log a warning to the console.
+
+### How to remove a DevTools Extension
+
+You can pass the name of the extension to the `BrowserWindow.removeDevToolsExtension`
+API to remove it. The name of the extension is returned by
+`BrowserWindow.addDevToolsExtension` and you can get the names of all installed
+DevTools Extensions using the `BrowserWindow.getDevToolsExtensions` API.
 
 ## Supported DevTools Extensions
 
@@ -50,7 +65,7 @@ Following Devtools Extensions are tested and guaranteed to work in Electron:
 * [jQuery Debugger](https://chrome.google.com/webstore/detail/jquery-debugger/dbhhnnnpaeobfddmlalhnehgclcmjimi)
 * [AngularJS Batarang](https://chrome.google.com/webstore/detail/angularjs-batarang/ighdmehidhipcmcojjgiloacoafjmpfk)
 * [Vue.js devtools](https://chrome.google.com/webstore/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
-* [Cerebral Debugger](https://cerebraljs.com/docs/introduction/debugger.html)
+* [Cerebral Debugger](https://cerebraljs.com/docs/introduction/devtools.html)
 * [Redux DevTools Extension](https://chrome.google.com/webstore/detail/redux-devtools/lmhkpmbekcpmknklioeibfkpmmfibljd)
 * [MobX Developer Tools](https://chrome.google.com/webstore/detail/mobx-developer-tools/pfgnfdagidkfgccljigdamigbcnndkod)
 
